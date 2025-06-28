@@ -6,7 +6,7 @@ import { Roboto_400Regular, Roboto_500Medium } from '@expo-google-fonts/roboto';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { notificationService } from '@/services/notifications';
+import '../global.css';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,11 +27,6 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
-
-  useEffect(() => {
-    // Request notification permissions on app start
-    notificationService.requestPermissions();
-  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;

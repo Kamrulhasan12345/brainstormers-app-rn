@@ -21,36 +21,43 @@ class AuthService {
 
     console.log('AuthService: Login successful, fetching profile');
 
-    // Get user profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
+    // For demo purposes, return mock user data based on email
+    const mockUsers: Record<string, User> = {
+      'admin@brainstormers.edu': {
+        id: data.user.id,
+        email: credentials.email,
+        name: 'Admin User',
+        role: 'admin',
+        createdAt: data.user.created_at,
+      },
+      'teacher@brainstormers.edu': {
+        id: data.user.id,
+        email: credentials.email,
+        name: 'Dr. Rajesh Kumar',
+        role: 'teacher',
+        createdAt: data.user.created_at,
+      },
+      'student@brainstormers.edu': {
+        id: data.user.id,
+        email: credentials.email,
+        name: 'Arjun Sharma',
+        role: 'student',
+        rollNumber: 'BS2027001',
+        class: 'HSC Science - Batch 2027',
+        phone: '+91 98765 43210',
+        guardianPhone: '+91 98765 43211',
+        guardianEmail: 'parent.arjun@gmail.com',
+        createdAt: data.user.created_at,
+      },
+    };
 
-    if (profileError) {
-      console.error('AuthService: Profile fetch error', profileError);
-      throw new Error('Failed to fetch user profile: ' + profileError.message);
-    }
-
-    if (!profile) {
+    const user = mockUsers[credentials.email];
+    if (!user) {
       throw new Error('User profile not found');
     }
 
-    console.log('AuthService: Profile fetched successfully', profile.role);
-
-    return {
-      id: profile.id,
-      email: profile.email,
-      name: profile.name,
-      role: profile.role,
-      rollNumber: profile.roll_number,
-      class: profile.class,
-      phone: profile.phone,
-      guardianPhone: profile.guardian_phone,
-      guardianEmail: profile.guardian_email,
-      createdAt: profile.created_at,
-    };
+    console.log('AuthService: Profile fetched successfully', user.role);
+    return user;
   }
 
   async logout(): Promise<void> {
@@ -68,34 +75,37 @@ class AuthService {
     
     if (!user) return null;
 
-    // Get user profile
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching profile:', error);
-      return null;
-    }
-
-    if (!profile) {
-      return null;
-    }
-
-    return {
-      id: profile.id,
-      email: profile.email,
-      name: profile.name,
-      role: profile.role,
-      rollNumber: profile.roll_number,
-      class: profile.class,
-      phone: profile.phone,
-      guardianPhone: profile.guardian_phone,
-      guardianEmail: profile.guardian_email,
-      createdAt: profile.created_at,
+    // For demo purposes, return mock user data
+    const mockUsers: Record<string, User> = {
+      'admin@brainstormers.edu': {
+        id: user.id,
+        email: user.email || '',
+        name: 'Admin User',
+        role: 'admin',
+        createdAt: user.created_at,
+      },
+      'teacher@brainstormers.edu': {
+        id: user.id,
+        email: user.email || '',
+        name: 'Dr. Rajesh Kumar',
+        role: 'teacher',
+        createdAt: user.created_at,
+      },
+      'student@brainstormers.edu': {
+        id: user.id,
+        email: user.email || '',
+        name: 'Arjun Sharma',
+        role: 'student',
+        rollNumber: 'BS2027001',
+        class: 'HSC Science - Batch 2027',
+        phone: '+91 98765 43210',
+        guardianPhone: '+91 98765 43211',
+        guardianEmail: 'parent.arjun@gmail.com',
+        createdAt: user.created_at,
+      },
     };
+
+    return mockUsers[user.email || ''] || null;
   }
 
   async signUp(userData: {
@@ -126,22 +136,6 @@ class AuthService {
 
     if (!data.user) {
       throw new Error('Sign up failed');
-    }
-
-    // Update profile with additional data
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        roll_number: userData.rollNumber,
-        class: userData.class,
-        phone: userData.phone,
-        guardian_phone: userData.guardianPhone,
-        guardian_email: userData.guardianEmail,
-      })
-      .eq('id', data.user.id);
-
-    if (updateError) {
-      console.error('Error updating profile:', updateError);
     }
 
     return {

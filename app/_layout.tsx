@@ -15,7 +15,10 @@ function RootLayoutNav() {
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) {
+      console.log('Auth is loading, waiting...');
+      return;
+    }
 
     const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'admin' || segments[0] === 'teacher';
 
@@ -23,25 +26,29 @@ function RootLayoutNav() {
       isAuthenticated, 
       inAuthGroup, 
       segments: segments[0], 
-      userRole: user?.role 
+      userRole: user?.role,
+      isLoading
     });
 
-    if (!isAuthenticated && inAuthGroup) {
-      // Redirect to login if not authenticated and trying to access protected routes
-      console.log('Redirecting to login - not authenticated');
-      router.replace('/login');
-    } else if (isAuthenticated && !inAuthGroup) {
-      // Redirect to appropriate dashboard based on user role
-      console.log('Redirecting to dashboard - authenticated');
-      if (user?.role === 'admin') {
-        router.replace('/admin');
-      } else if (user?.role === 'teacher') {
-        router.replace('/teacher');
-      } else {
-        router.replace('/(tabs)');
+    if (!isAuthenticated) {
+      if (inAuthGroup) {
+        console.log('Redirecting to login - not authenticated but in protected route');
+        router.replace('/login');
+      }
+    } else {
+      if (!inAuthGroup) {
+        console.log('Redirecting to dashboard - authenticated but not in protected route');
+        // Redirect to appropriate dashboard based on user role
+        if (user?.role === 'admin') {
+          router.replace('/admin');
+        } else if (user?.role === 'teacher') {
+          router.replace('/teacher');
+        } else {
+          router.replace('/(tabs)');
+        }
       }
     }
-  }, [isAuthenticated, isLoading, segments, user?.role]);
+  }, [isAuthenticated, isLoading, segments, user?.role, router]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

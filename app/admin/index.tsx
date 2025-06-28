@@ -57,9 +57,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
+      console.log('Admin dashboard: User not admin, redirecting to login');
       router.replace('/login');
     }
-  }, [user]);
+  }, [user, router]);
 
   const handleQuickImport = async () => {
     try {
@@ -125,8 +126,8 @@ export default function AdminDashboard() {
             try {
               console.log('Admin logout initiated');
               await logout();
-              console.log('Admin logout completed, navigating to login');
-              router.replace('/login');
+              console.log('Admin logout completed');
+              // Navigation will be handled automatically by the auth context
             } catch (error) {
               console.error('Logout error:', error);
               // Force navigation even if logout fails

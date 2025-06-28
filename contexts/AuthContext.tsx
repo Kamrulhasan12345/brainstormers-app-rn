@@ -36,8 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (session?.user) {
+        if (event === 'SIGNED_IN' && session?.user) {
           try {
+            console.log('User signed in, fetching profile');
             const user = await authService.getCurrentUser();
             console.log('User profile loaded:', user?.role);
             setAuthState({
@@ -62,9 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuthState = async () => {
     try {
+      console.log('Checking initial auth state...');
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
+        console.log('Found existing session, fetching user profile');
         const user = await authService.getCurrentUser();
         setAuthState({
           user,
@@ -72,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: !!user,
         });
       } else {
+        console.log('No existing session found');
         setAuthState({
           user: null,
           isLoading: false,
@@ -90,14 +94,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (credentials: LoginCredentials) => {
     try {
+      console.log('Login attempt started');
       setAuthState(prev => ({ ...prev, isLoading: true }));
       const user = await authService.login(credentials);
+      console.log('Login successful, user:', user.role);
       setAuthState({
         user,
         isLoading: false,
         isAuthenticated: true,
       });
     } catch (error) {
+      console.error('Login failed:', error);
       setAuthState({
         user: null,
         isLoading: false,
@@ -110,22 +117,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       console.log('Logout initiated');
-      setAuthState(prev => ({ ...prev, isLoading: true }));
       
-      // Sign out from Supabase
-      await authService.logout();
-      
-      // Immediately clear the state
+      // Immediately clear the state to prevent UI issues
       setAuthState({
         user: null,
         isLoading: false,
         isAuthenticated: false,
       });
       
-      console.log('Logout completed');
+      // Sign out from Supabase (this will trigger the auth state change)
+      await authService.logout();
+      
+      console.log('Logout completed successfully');
     } catch (error) {
-      console.error('Error logging out:', error);
-      // Even if there's an error, clear the state
+      console.error('Error during logout:', error);
+      // Even if there's an error, ensure the state is cleared
       setAuthState({
         user: null,
         isLoading: false,

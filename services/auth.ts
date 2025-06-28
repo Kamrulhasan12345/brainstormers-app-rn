@@ -3,18 +3,23 @@ import { User, LoginCredentials } from '@/types/auth';
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<User> {
+    console.log('AuthService: Attempting login for', credentials.email);
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
     });
 
     if (error) {
+      console.error('AuthService: Login error', error);
       throw new Error(error.message);
     }
 
     if (!data.user) {
-      throw new Error('Login failed');
+      throw new Error('Login failed - no user returned');
     }
+
+    console.log('AuthService: Login successful, fetching profile');
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase
@@ -24,8 +29,15 @@ class AuthService {
       .single();
 
     if (profileError) {
-      throw new Error('Failed to fetch user profile');
+      console.error('AuthService: Profile fetch error', profileError);
+      throw new Error('Failed to fetch user profile: ' + profileError.message);
     }
+
+    if (!profile) {
+      throw new Error('User profile not found');
+    }
+
+    console.log('AuthService: Profile fetched successfully', profile.role);
 
     return {
       id: profile.id,
@@ -62,6 +74,10 @@ class AuthService {
 
     if (error) {
       console.error('Error fetching profile:', error);
+      return null;
+    }
+
+    if (!profile) {
       return null;
     }
 

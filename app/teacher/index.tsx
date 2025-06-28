@@ -106,8 +106,16 @@ export default function TeacherDashboard() {
           text: 'Logout', 
           style: 'destructive',
           onPress: async () => {
-            await logout();
-            router.replace('/login');
+            try {
+              console.log('Teacher logout initiated');
+              await logout();
+              console.log('Teacher logout completed, navigating to login');
+              router.replace('/login');
+            } catch (error) {
+              console.error('Logout error:', error);
+              // Force navigation even if logout fails
+              router.replace('/login');
+            }
           }
         }
       ]

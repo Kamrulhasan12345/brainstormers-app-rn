@@ -26,9 +26,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
         
+        if (event === 'SIGNED_OUT' || !session?.user) {
+          console.log('User signed out, clearing state');
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
+          return;
+        }
+
         if (session?.user) {
           try {
             const user = await authService.getCurrentUser();
+            console.log('User profile loaded:', user?.role);
             setAuthState({
               user,
               isLoading: false,
@@ -42,12 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               isAuthenticated: false,
             });
           }
-        } else {
-          setAuthState({
-            user: null,
-            isLoading: false,
-            isAuthenticated: false,
-          });
         }
       }
     );
@@ -104,14 +109,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      console.log('Logout initiated');
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+      
+      // Sign out from Supabase
       await authService.logout();
+      
+      // Immediately clear the state
       setAuthState({
         user: null,
         isLoading: false,
         isAuthenticated: false,
       });
+      
+      console.log('Logout completed');
     } catch (error) {
       console.error('Error logging out:', error);
+      // Even if there's an error, clear the state
+      setAuthState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
     }
   };
 

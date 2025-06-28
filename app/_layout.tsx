@@ -19,11 +19,20 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'admin' || segments[0] === 'teacher';
 
+    console.log('Navigation check:', { 
+      isAuthenticated, 
+      inAuthGroup, 
+      segments: segments[0], 
+      userRole: user?.role 
+    });
+
     if (!isAuthenticated && inAuthGroup) {
       // Redirect to login if not authenticated and trying to access protected routes
+      console.log('Redirecting to login - not authenticated');
       router.replace('/login');
     } else if (isAuthenticated && !inAuthGroup) {
       // Redirect to appropriate dashboard based on user role
+      console.log('Redirecting to dashboard - authenticated');
       if (user?.role === 'admin') {
         router.replace('/admin');
       } else if (user?.role === 'teacher') {

@@ -62,8 +62,16 @@ export default function ProfileScreen() {
           text: 'Logout', 
           style: 'destructive',
           onPress: async () => {
-            await logout();
-            router.replace('/login');
+            try {
+              console.log('Student logout initiated');
+              await logout();
+              console.log('Student logout completed, navigating to login');
+              router.replace('/login');
+            } catch (error) {
+              console.error('Logout error:', error);
+              // Force navigation even if logout fails
+              router.replace('/login');
+            }
           }
         }
       ]

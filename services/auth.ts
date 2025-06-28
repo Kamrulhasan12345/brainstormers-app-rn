@@ -54,10 +54,13 @@ class AuthService {
   }
 
   async logout(): Promise<void> {
+    console.log('AuthService: Signing out');
     const { error } = await supabase.auth.signOut();
     if (error) {
+      console.error('AuthService: Logout error', error);
       throw new Error(error.message);
     }
+    console.log('AuthService: Sign out successful');
   }
 
   async getCurrentUser(): Promise<User | null> {

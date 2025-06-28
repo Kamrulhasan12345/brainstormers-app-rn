@@ -109,8 +109,8 @@ export default function TeacherDashboard() {
             try {
               console.log('Teacher logout initiated');
               await logout();
-              console.log('Teacher logout completed, navigating to login');
-              router.replace('/login');
+              console.log('Teacher logout completed');
+              // Navigation will be handled automatically by the auth context
             } catch (error) {
               console.error('Logout error:', error);
               // Force navigation even if logout fails

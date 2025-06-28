@@ -65,8 +65,8 @@ export default function ProfileScreen() {
             try {
               console.log('Student logout initiated');
               await logout();
-              console.log('Student logout completed, navigating to login');
-              router.replace('/login');
+              console.log('Student logout completed');
+              // Navigation will be handled automatically by the auth context
             } catch (error) {
               console.error('Logout error:', error);
               // Force navigation even if logout fails

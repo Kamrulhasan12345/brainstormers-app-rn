@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, Lock, Eye, EyeOff, GraduationCap } from 'lucide-react-native';
 
@@ -13,7 +12,6 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   
   const { login } = useAuth();
-  const router = useRouter();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -23,10 +21,12 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      console.log('Attempting login with:', email);
       await login({ email, password });
-      
-      // Navigation will be handled by the auth context and layout
+      console.log('Login successful');
+      // Navigation will be handled automatically by the auth context
     } catch (error) {
+      console.error('Login error:', error);
       Alert.alert('Login Failed', error instanceof Error ? error.message : 'Invalid credentials');
     } finally {
       setIsLoading(false);
@@ -84,6 +84,7 @@ export default function LoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholderTextColor="#9CA3AF"
+                editable={!isLoading}
               />
             </View>
 
@@ -96,10 +97,12 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 placeholderTextColor="#9CA3AF"
+                editable={!isLoading}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}>
+                onPress={() => setShowPassword(!showPassword)}
+                disabled={isLoading}>
                 {showPassword ? (
                   <EyeOff size={20} color="#6B7280" />
                 ) : (
@@ -127,17 +130,20 @@ export default function LoginScreen() {
             <View style={styles.demoButtons}>
               <TouchableOpacity
                 style={styles.demoButton}
-                onPress={() => fillDemoCredentials('admin')}>
+                onPress={() => fillDemoCredentials('admin')}
+                disabled={isLoading}>
                 <Text style={styles.demoButtonText}>Admin</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.demoButton}
-                onPress={() => fillDemoCredentials('teacher')}>
+                onPress={() => fillDemoCredentials('teacher')}
+                disabled={isLoading}>
                 <Text style={styles.demoButtonText}>Teacher</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.demoButton}
-                onPress={() => fillDemoCredentials('student')}>
+                onPress={() => fillDemoCredentials('student')}
+                disabled={isLoading}>
                 <Text style={styles.demoButtonText}>Student</Text>
               </TouchableOpacity>
             </View>

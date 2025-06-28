@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AuthState, User, LoginCredentials } from '@/types/auth';
 import { authService } from '@/services/auth';
+import { supabase } from '@/lib/supabase';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -17,17 +18,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    // Check initial session
     checkAuthState();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        if (session?.user) {
+          try {
+            const user = await authService.getCurrentUser();
+            setAuthState({
+              user,
+              isLoading: false,
+              isAuthenticated: !!user,
+            });
+          } catch (error) {
+            console.error('Error getting user profile:', error);
+            setAuthState({
+              user: null,
+              isLoading: false,
+              isAuthenticated: false,
+            });
+          }
+        } else {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkAuthState = async () => {
     try {
-      const user = await authService.getCurrentUser();
-      setAuthState({
-        user,
-        isLoading: false,
-        isAuthenticated: !!user,
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const user = await authService.getCurrentUser();
+        setAuthState({
+          user,
+          isLoading: false,
+          isAuthenticated: !!user,
+        });
+      } else {
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+      }
     } catch (error) {
       console.error('Error checking auth state:', error);
       setAuthState({

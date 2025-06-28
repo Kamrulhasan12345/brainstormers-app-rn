@@ -1,13 +1,49 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { Roboto_400Regular, Roboto_500Medium } from '@expo-google-fonts/roboto';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
+
+function RootLayoutNav() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'admin' || segments[0] === 'teacher';
+
+    if (!isAuthenticated && inAuthGroup) {
+      // Redirect to login if not authenticated and trying to access protected routes
+      router.replace('/login');
+    } else if (isAuthenticated && !inAuthGroup) {
+      // Redirect to appropriate dashboard based on user role
+      if (user?.role === 'admin') {
+        router.replace('/admin');
+      } else if (user?.role === 'teacher') {
+        router.replace('/teacher');
+      } else {
+        router.replace('/(tabs)');
+      }
+    }
+  }, [isAuthenticated, isLoading, segments, user?.role]);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="login" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="admin" />
+      <Stack.Screen name="teacher" />
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -33,13 +69,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="admin" />
-        <Stack.Screen name="teacher" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      <RootLayoutNav />
       <StatusBar style="auto" />
     </AuthProvider>
   );

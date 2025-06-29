@@ -1,10 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Clock, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Calendar, Bell, Award, Target } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { examsService } from '@/services/exams';
+import { isDemoMode } from '@/lib/supabase';
 
-const examData = [
+// Mock data for demo mode
+const mockExamData = [
   {
     id: 1,
     subject: 'Physics',
@@ -73,7 +76,54 @@ const examTypes = ['All', 'Unit Test', 'Chapter Test', 'Monthly Test', 'Prelims'
 
 export default function ExamsScreen() {
   const [selectedType, setSelectedType] = useState('All');
+  const [exams, setExams] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    loadExams();
+  }, []);
+
+  const loadExams = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (isDemoMode()) {
+        // Use mock data in demo mode
+        setExams(mockExamData);
+      } else {
+        // Load from database
+        const data = await examsService.getExams();
+        const formattedExams = data.map((exam: any) => ({
+          id: exam.id,
+          subject: exam.subjects?.name || 'Unknown Subject',
+          topic: exam.title,
+          date: exam.exam_date,
+          time: `${exam.start_time} - ${exam.end_time}`,
+          duration: `${Math.floor(exam.duration_minutes / 60)} hours`,
+          totalMarks: exam.total_marks,
+          status: exam.status,
+          type: exam.exam_type,
+          location: exam.location || 'TBD',
+          reminders: true,
+          syllabus: exam.exam_syllabus?.map((s: any) => s.topic) || [],
+          hasResult: exam.exam_results && exam.exam_results.length > 0,
+          marksObtained: exam.exam_results?.[0]?.marks_obtained,
+          grade: exam.exam_results?.[0]?.grade,
+        }));
+        setExams(formattedExams);
+      }
+    } catch (err) {
+      console.error('Error loading exams:', err);
+      setError('Failed to load exams. Please try again.');
+      // Fallback to mock data on error
+      setExams(mockExamData);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -118,8 +168,19 @@ export default function ExamsScreen() {
     router.push(`/(tabs)/exams/${examId}`);
   };
 
-  const upcomingExams = examData.filter(exam => exam.status === 'upcoming');
-  const missedExams = examData.filter(exam => exam.status === 'missed');
+  const upcomingExams = exams.filter(exam => exam.status === 'upcoming');
+  const missedExams = exams.filter(exam => exam.status === 'missed');
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Loading exams...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -127,6 +188,15 @@ export default function ExamsScreen() {
         <Text style={styles.headerTitle}>Exam Schedule</Text>
         <Text style={styles.headerSubtitle}>Track your assessments</Text>
       </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadExams}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Notifications Section */}
@@ -184,7 +254,7 @@ export default function ExamsScreen() {
         {/* Exam Cards */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>All Exams</Text>
-          {examData.map((exam) => {
+          {exams.map((exam) => {
             const StatusIcon = getStatusIcon(exam.status);
             return (
               <TouchableOpacity 
@@ -263,7 +333,7 @@ export default function ExamsScreen() {
                 <View style={styles.syllabusSection}>
                   <Text style={styles.syllabusTitle}>Syllabus Coverage:</Text>
                   <View style={styles.syllabusTopics}>
-                    {exam.syllabus.map((topic, index) => (
+                    {exam.syllabus.map((topic: string, index: number) => (
                       <View key={index} style={styles.topicChip}>
                         <Text style={styles.topicText}>{topic}</Text>
                       </View>
@@ -288,6 +358,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontFamily: 'Inter-Regular',
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    margin: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   header: {
     backgroundColor: '#FFFFFF',

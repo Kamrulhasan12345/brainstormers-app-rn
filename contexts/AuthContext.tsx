@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: false,
       });
       
-      // Sign out from Supabase (this will trigger the auth state change)
+      // Sign out from Supabase
       await authService.logout();
       
       console.log('Logout completed successfully');

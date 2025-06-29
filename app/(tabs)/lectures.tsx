@@ -1,8 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Filter, Clock, MapPin, Play, FileText, Users } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { lecturesService } from '@/services/lectures';
+import { isDemoMode } from '@/lib/supabase';
 
 const hscSubjects = [
   'Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Hindi',
@@ -13,7 +15,8 @@ const hscSubjects = [
   'Defence Studies', 'Physical Education', 'Art'
 ];
 
-const lectureData = [
+// Mock data for demo mode
+const mockLectureData = [
   {
     id: 1,
     subject: 'Physics',
@@ -82,7 +85,52 @@ export default function LecturesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [selectedSubject, setSelectedSubject] = useState('All');
+  const [lectures, setLectures] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    loadLectures();
+  }, []);
+
+  const loadLectures = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (isDemoMode()) {
+        // Use mock data in demo mode
+        setLectures(mockLectureData);
+      } else {
+        // Load from database
+        const data = await lecturesService.getLectures();
+        const formattedLectures = data.map((lecture: any) => ({
+          id: lecture.id,
+          subject: lecture.subjects?.name || 'Unknown Subject',
+          topic: lecture.topic,
+          teacher: lecture.profiles?.name || 'Unknown Teacher',
+          date: lecture.scheduled_date,
+          time: `${lecture.start_time} - ${lecture.end_time}`,
+          location: lecture.location || 'TBD',
+          status: lecture.status,
+          materials: lecture.lecture_materials?.length || 0,
+          attendees: 0, // This would need to be calculated from attendance
+          description: lecture.description || '',
+          notesCount: 0, // This would need to be calculated
+          questionsCount: 0, // This would need to be calculated
+        }));
+        setLectures(formattedLectures);
+      }
+    } catch (err) {
+      console.error('Error loading lectures:', err);
+      setError('Failed to load lectures. Please try again.');
+      // Fallback to mock data on error
+      setLectures(mockLectureData);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -114,12 +162,41 @@ export default function LecturesScreen() {
     router.push(`/(tabs)/lectures/${lectureId}`);
   };
 
+  const filteredLectures = lectures.filter(lecture => {
+    const matchesSearch = lecture.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         lecture.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         lecture.teacher.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSubject = selectedSubject === 'All' || lecture.subject === selectedSubject;
+    
+    return matchesSearch && matchesSubject;
+  });
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Loading lectures...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Lecture Plan</Text>
         <Text style={styles.headerSubtitle}>HSC 2027 Batch</Text>
       </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadLectures}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Search Bar */}
@@ -202,7 +279,7 @@ export default function LecturesScreen() {
         {/* Lecture Cards */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Lectures</Text>
-          {lectureData.map((lecture) => (
+          {filteredLectures.map((lecture) => (
             <TouchableOpacity 
               key={lecture.id} 
               style={styles.lectureCard}
@@ -280,6 +357,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontFamily: 'Inter-Regular',
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    margin: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   header: {
     backgroundColor: '#FFFFFF',

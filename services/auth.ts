@@ -1,10 +1,14 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, isDemoMode } from '@/lib/supabase';
 import { User, LoginCredentials } from '@/types/auth';
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<User> {
     console.log('AuthService: Attempting login for', credentials.email);
     
+    if (isDemoMode()) {
+      return this.handleDemoLogin(credentials);
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
@@ -20,25 +24,27 @@ class AuthService {
     }
 
     console.log('AuthService: Login successful, fetching profile');
+    return await this.fetchUserProfile(data.user.id);
+  }
 
-    // For demo purposes, return mock user data based on email
+  private async handleDemoLogin(credentials: LoginCredentials): Promise<User> {
     const mockUsers: Record<string, User> = {
       'admin@brainstormers.edu': {
-        id: data.user.id,
+        id: 'demo-admin-id',
         email: credentials.email,
         name: 'Admin User',
         role: 'admin',
-        createdAt: data.user.created_at,
+        createdAt: new Date().toISOString(),
       },
       'teacher@brainstormers.edu': {
-        id: data.user.id,
+        id: 'demo-teacher-id',
         email: credentials.email,
         name: 'Dr. Rajesh Kumar',
         role: 'teacher',
-        createdAt: data.user.created_at,
+        createdAt: new Date().toISOString(),
       },
       'student@brainstormers.edu': {
-        id: data.user.id,
+        id: 'demo-student-id',
         email: credentials.email,
         name: 'Arjun Sharma',
         role: 'student',
@@ -47,21 +53,62 @@ class AuthService {
         phone: '+91 98765 43210',
         guardianPhone: '+91 98765 43211',
         guardianEmail: 'parent.arjun@gmail.com',
-        createdAt: data.user.created_at,
+        createdAt: new Date().toISOString(),
       },
     };
 
-    const user = mockUsers[credentials.email];
-    if (!user) {
-      throw new Error('User profile not found');
+    const mockPasswords: Record<string, string> = {
+      'admin@brainstormers.edu': 'admin123',
+      'teacher@brainstormers.edu': 'teacher123',
+      'student@brainstormers.edu': 'student123',
+    };
+
+    if (mockPasswords[credentials.email] !== credentials.password) {
+      throw new Error('Invalid credentials');
     }
 
-    console.log('AuthService: Profile fetched successfully', user.role);
+    const user = mockUsers[credentials.email];
+    if (!user) {
+      throw new Error('User not found');
+    }
+
     return user;
+  }
+
+  private async fetchUserProfile(userId: string): Promise<User> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      throw new Error('Failed to fetch user profile');
+    }
+
+    return {
+      id: data.id,
+      email: data.email,
+      name: data.name,
+      role: data.role,
+      rollNumber: data.roll_number,
+      class: data.class,
+      phone: data.phone,
+      guardianPhone: data.guardian_phone,
+      guardianEmail: data.guardian_email,
+      createdAt: data.created_at,
+    };
   }
 
   async logout(): Promise<void> {
     console.log('AuthService: Signing out');
+    
+    if (isDemoMode()) {
+      console.log('AuthService: Demo mode logout');
+      return;
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('AuthService: Logout error', error);
@@ -71,41 +118,15 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User | null> {
+    if (isDemoMode()) {
+      return null;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) return null;
 
-    // For demo purposes, return mock user data
-    const mockUsers: Record<string, User> = {
-      'admin@brainstormers.edu': {
-        id: user.id,
-        email: user.email || '',
-        name: 'Admin User',
-        role: 'admin',
-        createdAt: user.created_at,
-      },
-      'teacher@brainstormers.edu': {
-        id: user.id,
-        email: user.email || '',
-        name: 'Dr. Rajesh Kumar',
-        role: 'teacher',
-        createdAt: user.created_at,
-      },
-      'student@brainstormers.edu': {
-        id: user.id,
-        email: user.email || '',
-        name: 'Arjun Sharma',
-        role: 'student',
-        rollNumber: 'BS2027001',
-        class: 'HSC Science - Batch 2027',
-        phone: '+91 98765 43210',
-        guardianPhone: '+91 98765 43211',
-        guardianEmail: 'parent.arjun@gmail.com',
-        createdAt: user.created_at,
-      },
-    };
-
-    return mockUsers[user.email || ''] || null;
+    return await this.fetchUserProfile(user.id);
   }
 
   async signUp(userData: {
@@ -136,6 +157,25 @@ class AuthService {
 
     if (!data.user) {
       throw new Error('Sign up failed');
+    }
+
+    // Create profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        roll_number: userData.rollNumber,
+        class: userData.class,
+        phone: userData.phone,
+        guardian_phone: userData.guardianPhone,
+        guardian_email: userData.guardianEmail,
+      });
+
+    if (profileError) {
+      throw new Error(profileError.message);
     }
 
     return {

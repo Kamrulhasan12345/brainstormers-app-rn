@@ -1,9 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Plus, MessageCircle, ThumbsUp, ThumbsDown, User, Clock, Filter } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { isDemoMode } from '@/lib/supabase';
 
-const qnaData = [
+// Mock data for demo mode
+const mockQnaData = [
   {
     id: 1,
     subject: 'Physics',
@@ -77,6 +79,46 @@ export default function QnAScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [selectedSort, setSelectedSort] = useState('Recent');
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadQuestions();
+  }, []);
+
+  const loadQuestions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (isDemoMode()) {
+        // Use mock data in demo mode
+        setQuestions(mockQnaData);
+      } else {
+        // In a real app, you would load from the database
+        // For now, we'll use mock data as fallback
+        setQuestions(mockQnaData);
+      }
+    } catch (err) {
+      console.error('Error loading questions:', err);
+      setError('Failed to load questions. Please try again.');
+      setQuestions(mockQnaData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Loading questions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,6 +126,15 @@ export default function QnAScreen() {
         <Text style={styles.headerTitle}>Q&A Forum</Text>
         <Text style={styles.headerSubtitle}>Ask questions, share knowledge</Text>
       </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadQuestions}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Search and Add Question */}
@@ -154,7 +205,7 @@ export default function QnAScreen() {
 
         {/* Questions List */}
         <View style={styles.section}>
-          {qnaData.map((question) => (
+          {questions.map((question) => (
             <TouchableOpacity key={question.id} style={styles.questionCard}>
               {/* Question Header */}
               <View style={styles.questionHeader}>
@@ -171,7 +222,7 @@ export default function QnAScreen() {
 
               {/* Tags */}
               <View style={styles.tagsContainer}>
-                {question.tags.map((tag, index) => (
+                {question.tags.map((tag: string, index: number) => (
                   <View key={index} style={styles.tagChip}>
                     <Text style={styles.tagText}>#{tag}</Text>
                   </View>
@@ -267,6 +318,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontFamily: 'Inter-Regular',
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    margin: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   header: {
     backgroundColor: '#FFFFFF',

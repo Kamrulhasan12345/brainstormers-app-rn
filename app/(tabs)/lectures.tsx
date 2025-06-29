@@ -109,7 +109,7 @@ export default function LecturesScreen() {
           id: lecture.id,
           subject: lecture.subjects?.name || 'Unknown Subject',
           topic: lecture.topic,
-          teacher: lecture.profiles?.name || 'Unknown Teacher',
+          teacher: lecture.teachers?.profiles?.name || 'Unknown Teacher',
           date: lecture.scheduled_date,
           time: `${lecture.start_time} - ${lecture.end_time}`,
           location: lecture.location || 'TBD',

@@ -13,7 +13,7 @@ class LecturesService {
         *,
         subjects:subject_id(name, code),
         classes:class_id(name),
-        profiles:teacher_id(name),
+        teachers:teacher_id(profiles(name)),
         lecture_materials(*)
       `)
       .order('scheduled_date', { ascending: true });
@@ -38,7 +38,7 @@ class LecturesService {
         *,
         subjects:subject_id(name, code),
         classes:class_id(name),
-        profiles:teacher_id(name),
+        teachers:teacher_id(profiles(name)),
         lecture_materials(*),
         lecture_notes(*),
         lecture_questions(

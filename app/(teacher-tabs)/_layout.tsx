@@ -2,28 +2,32 @@ import { Tabs, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 import {
-  Chrome as Home,
-  BookOpen,
+  LayoutDashboard,
+  GraduationCap,
   Calendar,
+  BookOpen,
   MessageCircle,
   User,
 } from 'lucide-react-native';
 
-export default function TabLayout() {
+export default function TeacherTabLayout() {
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace('/login-selection');
-    } else if (user?.role === 'admin') {
-      router.replace('/(admin-tabs)');
-    } else if (user?.role === 'teacher') {
-      router.replace('/(teacher-tabs)');
+    } else if (user?.role !== 'teacher') {
+      // Redirect non-teacher users to appropriate dashboard
+      if (user?.role === 'admin') {
+        router.replace('/(admin-tabs)');
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   }, [isAuthenticated, user]);
 
-  if (!isAuthenticated || user?.role === 'admin' || user?.role === 'teacher') {
+  if (!isAuthenticated || user?.role !== 'teacher') {
     return null;
   }
 
@@ -31,7 +35,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563EB',
+        tabBarActiveTintColor: '#7C3AED',
         tabBarInactiveTintColor: '#64748B',
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
@@ -51,8 +55,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
+          title: 'Dashboard',
+          tabBarIcon: ({ size, color }) => (
+            <LayoutDashboard size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="students"
+        options={{
+          title: 'My Students',
+          tabBarIcon: ({ size, color }) => (
+            <GraduationCap size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -94,13 +109,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="lectures/[id]"
         options={{
-          href: null, // This hides the tab from the tab bar
+          href: null,
         }}
       />
       <Tabs.Screen
         name="exams/[id]"
         options={{
-          href: null, // This hides the tab from the tab bar
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="students/[id]"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

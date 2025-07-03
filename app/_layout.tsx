@@ -1,7 +1,13 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
 import { Roboto_400Regular, Roboto_500Medium } from '@expo-google-fonts/roboto';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
@@ -20,29 +26,36 @@ function RootLayoutNav() {
       return;
     }
 
-    const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'admin' || segments[0] === 'teacher';
+    const inAuthGroup =
+      segments[0] === '(tabs)' ||
+      segments[0] === '(admin-tabs)' ||
+      segments[0] === '(teacher-tabs)';
 
-    console.log('Navigation check:', { 
-      isAuthenticated, 
-      inAuthGroup, 
-      segments: segments[0], 
+    console.log('Navigation check:', {
+      isAuthenticated,
+      inAuthGroup,
+      segments: segments[0],
       userRole: user?.role,
-      isLoading
+      isLoading,
     });
 
     if (!isAuthenticated) {
       if (inAuthGroup) {
-        console.log('Redirecting to login - not authenticated but in protected route');
-        router.replace('/login');
+        console.log(
+          'Redirecting to login selection - not authenticated but in protected route'
+        );
+        router.replace('/login-selection');
       }
     } else {
       if (!inAuthGroup) {
-        console.log('Redirecting to dashboard - authenticated but not in protected route');
+        console.log(
+          'Redirecting to dashboard - authenticated but not in protected route'
+        );
         // Redirect to appropriate dashboard based on user role
         if (user?.role === 'admin') {
-          router.replace('/admin');
+          router.replace('/(admin-tabs)');
         } else if (user?.role === 'teacher') {
-          router.replace('/teacher');
+          router.replace('/(teacher-tabs)');
         } else {
           router.replace('/(tabs)');
         }
@@ -52,7 +65,9 @@ function RootLayoutNav() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
+      <Stack.Screen name="login-selection" />
+      <Stack.Screen name="student-login" />
+      <Stack.Screen name="staff-login" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="admin" />
       <Stack.Screen name="teacher" />

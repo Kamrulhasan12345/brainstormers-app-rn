@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Plus, CreditCard as Edit, Trash2, User, Mail, Phone, GraduationCap, Search, Filter, Users, Award, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, User, Mail, Phone, GraduationCap, Search, Filter, Users, Award, Calendar, BookOpen } from 'lucide-react-native';
+import { studentService } from '@/services/students';
+import { courseService } from '@/services/courses';
+import { StudentWithProfile, CourseWithDetails } from '@/types/database-new';
 
 const mockStudents = [
   {

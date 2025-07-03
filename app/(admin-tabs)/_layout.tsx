@@ -2,28 +2,32 @@ import { Tabs, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 import {
-  Chrome as Home,
-  BookOpen,
+  LayoutDashboard,
+  Users,
   Calendar,
-  MessageCircle,
+  BookOpen,
+  Bell,
   User,
 } from 'lucide-react-native';
 
-export default function TabLayout() {
+export default function AdminTabLayout() {
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace('/login-selection');
-    } else if (user?.role === 'admin') {
-      router.replace('/(admin-tabs)');
-    } else if (user?.role === 'teacher') {
-      router.replace('/(teacher-tabs)');
+    } else if (user?.role !== 'admin') {
+      // Redirect non-admin users to appropriate dashboard
+      if (user?.role === 'teacher') {
+        router.replace('/(teacher-tabs)');
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   }, [isAuthenticated, user]);
 
-  if (!isAuthenticated || user?.role === 'admin' || user?.role === 'teacher') {
+  if (!isAuthenticated || user?.role !== 'admin') {
     return null;
   }
 
@@ -31,7 +35,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563EB',
+        tabBarActiveTintColor: '#DC2626',
         tabBarInactiveTintColor: '#64748B',
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
@@ -51,17 +55,17 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
+          title: 'Dashboard',
+          tabBarIcon: ({ size, color }) => (
+            <LayoutDashboard size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="lectures"
+        name="students"
         options={{
-          title: 'Lectures',
-          tabBarIcon: ({ size, color }) => (
-            <BookOpen size={size} color={color} />
-          ),
+          title: 'Students',
+          tabBarIcon: ({ size, color }) => <Users size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -74,33 +78,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="qna"
+        name="lectures"
         options={{
-          title: 'Q&A',
+          title: 'Lectures',
           tabBarIcon: ({ size, color }) => (
-            <MessageCircle size={size} color={color} />
+            <BookOpen size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="notifications"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ size, color }) => <User size={size} color={color} />,
-        }}
-      />
-
-      {/* Hide dynamic routes from tab bar */}
-      <Tabs.Screen
-        name="lectures/[id]"
-        options={{
-          href: null, // This hides the tab from the tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="exams/[id]"
-        options={{
-          href: null, // This hides the tab from the tab bar
+          title: 'Notifications',
+          tabBarIcon: ({ size, color }) => <Bell size={size} color={color} />,
         }}
       />
     </Tabs>

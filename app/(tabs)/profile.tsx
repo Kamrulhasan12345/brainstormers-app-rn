@@ -1,6 +1,25 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Settings, Bell, BookOpen, Award, TrendingUp, Calendar, LogOut, CreditCard as Edit3, Mail, Phone } from 'lucide-react-native';
+import {
+  User,
+  Settings,
+  Bell,
+  BookOpen,
+  Award,
+  TrendingUp,
+  Calendar,
+  LogOut,
+  CreditCard as Edit3,
+  Mail,
+  Phone,
+} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -26,10 +45,34 @@ const academicStats = {
 };
 
 const recentActivity = [
-  { id: 1, type: 'exam', title: 'Biology Unit Test', score: '78/90', date: '2 days ago' },
-  { id: 2, type: 'assignment', title: 'Chemistry Lab Report', score: '92/100', date: '5 days ago' },
-  { id: 3, type: 'lecture', title: 'Physics - Electromagnetic Induction', status: 'Attended', date: '1 week ago' },
-  { id: 4, type: 'qna', title: 'Asked question in Mathematics', status: 'Answered', date: '1 week ago' },
+  {
+    id: 1,
+    type: 'exam',
+    title: 'Biology Unit Test',
+    score: '78/90',
+    date: '2 days ago',
+  },
+  {
+    id: 2,
+    type: 'assignment',
+    title: 'Chemistry Lab Report',
+    score: '92/100',
+    date: '5 days ago',
+  },
+  {
+    id: 3,
+    type: 'lecture',
+    title: 'Physics - Electromagnetic Induction',
+    status: 'Attended',
+    date: '1 week ago',
+  },
+  {
+    id: 4,
+    type: 'qna',
+    title: 'Asked question in Mathematics',
+    status: 'Answered',
+    date: '1 week ago',
+  },
 ];
 
 const subjects = [
@@ -49,51 +92,62 @@ const menuItems = [
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const attendancePercentage = Math.round((academicStats.attendedLectures / academicStats.totalLectures) * 100);
-  const assignmentPercentage = Math.round((academicStats.assignmentsCompleted / academicStats.totalAssignments) * 100);
+  const attendancePercentage = Math.round(
+    (academicStats.attendedLectures / academicStats.totalLectures) * 100
+  );
+  const assignmentPercentage = Math.round(
+    (academicStats.assignmentsCompleted / academicStats.totalAssignments) * 100
+  );
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Student logout initiated');
-              await logout();
-              console.log('Student logout completed');
-              // Navigation will be handled automatically by the auth context
-            } catch (error) {
-              console.error('Logout error:', error);
-              // Force navigation even if logout fails
-              router.replace('/login');
-            }
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            console.log('Student logout initiated');
+            await logout();
+            console.log('Student logout completed');
+            // Navigation will be handled automatically by the auth context
+          } catch (error) {
+            console.error('Logout error:', error);
+            // Force navigation even if logout fails
+            router.replace('/login-selection');
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Header */}
         <LinearGradient
           colors={['#2563EB', '#1D4ED8']}
           style={styles.profileHeader}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}>
+          end={{ x: 1, y: 1 }}
+        >
           <View style={styles.profileInfo}>
             <View style={styles.profilePicture}>
-              <Text style={styles.profileInitials}>{user?.name?.split(' ').map(n => n[0]).join('') || 'U'}</Text>
+              <Text style={styles.profileInitials}>
+                {user?.name
+                  ?.split(' ')
+                  .map((n) => n[0])
+                  .join('') || 'U'}
+              </Text>
             </View>
             <View style={styles.studentDetails}>
               <Text style={styles.studentName}>{user?.name || 'User'}</Text>
-              <Text style={styles.rollNumber}>Roll No: {user?.rollNumber || 'N/A'}</Text>
+              <Text style={styles.rollNumber}>
+                Roll No: {user?.rollNumber || 'N/A'}
+              </Text>
               <Text style={styles.className}>{user?.class || 'N/A'}</Text>
             </View>
           </View>
@@ -120,10 +174,11 @@ export default function ProfileScreen() {
               <Text style={styles.statValue}>{attendancePercentage}%</Text>
               <Text style={styles.statLabel}>Attendance</Text>
               <Text style={styles.statDetail}>
-                {academicStats.attendedLectures}/{academicStats.totalLectures} lectures
+                {academicStats.attendedLectures}/{academicStats.totalLectures}{' '}
+                lectures
               </Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={styles.statIcon}>
                 <Award size={24} color="#059669" />
@@ -131,7 +186,8 @@ export default function ProfileScreen() {
               <Text style={styles.statValue}>{assignmentPercentage}%</Text>
               <Text style={styles.statLabel}>Assignments</Text>
               <Text style={styles.statDetail}>
-                {academicStats.assignmentsCompleted}/{academicStats.totalAssignments} completed
+                {academicStats.assignmentsCompleted}/
+                {academicStats.totalAssignments} completed
               </Text>
             </View>
           </View>
@@ -141,11 +197,13 @@ export default function ProfileScreen() {
               <View style={styles.statIcon}>
                 <TrendingUp size={24} color="#EA580C" />
               </View>
-              <Text style={styles.statValue}>{academicStats.averageScore}%</Text>
+              <Text style={styles.statValue}>
+                {academicStats.averageScore}%
+              </Text>
               <Text style={styles.statLabel}>Average Score</Text>
               <Text style={styles.statDetail}>Overall performance</Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={styles.statIcon}>
                 <Award size={24} color="#7C3AED" />
@@ -172,11 +230,14 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
                 <View style={styles.progressBar}>
-                  <View 
+                  <View
                     style={[
-                      styles.progressFill, 
-                      { width: `${subject.score}%`, backgroundColor: subject.color }
-                    ]} 
+                      styles.progressFill,
+                      {
+                        width: `${subject.score}%`,
+                        backgroundColor: subject.color,
+                      },
+                    ]}
                   />
                 </View>
               </View>
@@ -190,9 +251,15 @@ export default function ProfileScreen() {
           {recentActivity.map((activity) => (
             <TouchableOpacity key={activity.id} style={styles.activityCard}>
               <View style={styles.activityIcon}>
-                {activity.type === 'exam' && <Award size={20} color="#EA580C" />}
-                {activity.type === 'assignment' && <BookOpen size={20} color="#059669" />}
-                {activity.type === 'lecture' && <Calendar size={20} color="#2563EB" />}
+                {activity.type === 'exam' && (
+                  <Award size={20} color="#EA580C" />
+                )}
+                {activity.type === 'assignment' && (
+                  <BookOpen size={20} color="#059669" />
+                )}
+                {activity.type === 'lecture' && (
+                  <Calendar size={20} color="#2563EB" />
+                )}
                 {activity.type === 'qna' && <User size={20} color="#7C3AED" />}
               </View>
               <View style={styles.activityContent}>
@@ -210,14 +277,22 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Account</Text>
           {menuItems.map((item) => (
             <TouchableOpacity key={item.id} style={styles.menuItem}>
-              <View style={[styles.menuIcon, { backgroundColor: `${item.color}15` }]}>
+              <View
+                style={[
+                  styles.menuIcon,
+                  { backgroundColor: `${item.color}15` },
+                ]}
+              >
                 <item.icon size={20} color={item.color} />
               </View>
               <Text style={styles.menuTitle}>{item.title}</Text>
             </TouchableOpacity>
           ))}
-          
-          <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={handleLogout}>
+
+          <TouchableOpacity
+            style={[styles.menuItem, styles.logoutItem]}
+            onPress={handleLogout}
+          >
             <View style={[styles.menuIcon, { backgroundColor: '#FEF2F2' }]}>
               <LogOut size={20} color="#EF4444" />
             </View>

@@ -1,10 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Users, ClipboardCheck, GraduationCap, Calendar, Bell, TrendingUp, LogOut, Award, Clock } from 'lucide-react-native';
+import {
+  BookOpen,
+  Users,
+  ClipboardCheck,
+  GraduationCap,
+  Calendar,
+  Bell,
+  TrendingUp,
+  LogOut,
+  Award,
+  Clock,
+} from 'lucide-react-native';
 
 const teacherStats = {
   totalLectures: 24,
@@ -97,47 +115,50 @@ export default function TeacherDashboard() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Teacher logout initiated');
-              await logout();
-              console.log('Teacher logout completed');
-              // Navigation will be handled automatically by the auth context
-            } catch (error) {
-              console.error('Logout error:', error);
-              // Force navigation even if logout fails
-              router.replace('/login');
-            }
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            console.log('Teacher logout initiated');
+            await logout();
+            console.log('Teacher logout completed');
+            // Navigation will be handled automatically by the auth context
+          } catch (error) {
+            console.error('Logout error:', error);
+            // Force navigation even if logout fails
+            router.replace('/login-selection');
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <LinearGradient
           colors={['#059669', '#047857']}
           style={styles.header}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}>
+          end={{ x: 1, y: 1 }}
+        >
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.welcomeText}>Welcome back,</Text>
               <Text style={styles.teacherName}>{user?.name || 'Teacher'}</Text>
               <Text style={styles.roleText}>Physics Teacher</Text>
             </View>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
               <LogOut size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -154,7 +175,7 @@ export default function TeacherDashboard() {
               <Text style={styles.statValue}>{teacherStats.totalLectures}</Text>
               <Text style={styles.statLabel}>Total Lectures</Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: '#ECFDF5' }]}>
                 <Users size={20} color="#059669" />
@@ -162,15 +183,17 @@ export default function TeacherDashboard() {
               <Text style={styles.statValue}>{teacherStats.totalStudents}</Text>
               <Text style={styles.statLabel}>Students</Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
                 <TrendingUp size={20} color="#EA580C" />
               </View>
-              <Text style={styles.statValue}>{teacherStats.attendanceRate}%</Text>
+              <Text style={styles.statValue}>
+                {teacherStats.attendanceRate}%
+              </Text>
               <Text style={styles.statLabel}>Attendance</Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: '#F3E8FF' }]}>
                 <Award size={20} color="#7C3AED" />
@@ -189,12 +212,20 @@ export default function TeacherDashboard() {
               <TouchableOpacity
                 key={action.id}
                 style={styles.actionCard}
-                onPress={() => router.push(action.route as any)}>
-                <View style={[styles.actionIcon, { backgroundColor: `${action.color}15` }]}>
+                onPress={() => router.push(action.route as any)}
+              >
+                <View
+                  style={[
+                    styles.actionIcon,
+                    { backgroundColor: `${action.color}15` },
+                  ]}
+                >
                   <action.icon size={24} color={action.color} />
                 </View>
                 <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionDescription}>{action.description}</Text>
+                <Text style={styles.actionDescription}>
+                  {action.description}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -218,7 +249,9 @@ export default function TeacherDashboard() {
               <View style={styles.lectureDetails}>
                 <Text style={styles.lectureDate}>{lecture.date}</Text>
                 <Text style={styles.lectureLocation}>{lecture.location}</Text>
-                <Text style={styles.lectureStudents}>{lecture.students} students</Text>
+                <Text style={styles.lectureStudents}>
+                  {lecture.students} students
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -229,12 +262,19 @@ export default function TeacherDashboard() {
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           {recentActivity.map((activity) => (
             <View key={activity.id} style={styles.activityCard}>
-              <View style={[styles.activityIcon, { backgroundColor: `${activity.color}15` }]}>
+              <View
+                style={[
+                  styles.activityIcon,
+                  { backgroundColor: `${activity.color}15` },
+                ]}
+              >
                 <activity.icon size={20} color={activity.color} />
               </View>
               <View style={styles.activityContent}>
                 <Text style={styles.activityTitle}>{activity.title}</Text>
-                <Text style={styles.activityDescription}>{activity.description}</Text>
+                <Text style={styles.activityDescription}>
+                  {activity.description}
+                </Text>
                 <Text style={styles.activityTime}>{activity.time}</Text>
               </View>
             </View>
@@ -249,7 +289,8 @@ export default function TeacherDashboard() {
               <Text style={styles.pendingTitle}>Pending Tasks</Text>
             </View>
             <Text style={styles.pendingText}>
-              You have {teacherStats.pendingGrades} grades to enter and {teacherStats.upcomingLectures} lectures scheduled for this week.
+              You have {teacherStats.pendingGrades} grades to enter and{' '}
+              {teacherStats.upcomingLectures} lectures scheduled for this week.
             </Text>
           </View>
         </View>

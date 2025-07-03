@@ -1,10 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Calendar, Users, Bell, Upload, Download, ChartBar as BarChart3, Settings, LogOut, FileSpreadsheet, TriangleAlert as AlertTriangle, Zap } from 'lucide-react-native';
+import {
+  BookOpen,
+  Calendar,
+  Users,
+  Bell,
+  Upload,
+  Download,
+  ChartBar as BarChart3,
+  Settings,
+  LogOut,
+  FileSpreadsheet,
+  TriangleAlert as AlertTriangle,
+  Zap,
+} from 'lucide-react-native';
 import { excelService } from '@/services/excel';
 import { notificationService } from '@/services/notifications';
 
@@ -58,7 +78,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       console.log('Admin dashboard: User not admin, redirecting to login');
-      router.replace('/login');
+      router.replace('/login-selection');
     }
   }, [user, router]);
 
@@ -66,21 +86,19 @@ export default function AdminDashboard() {
     try {
       setIsLoading(true);
       const fileUri = await excelService.pickExcelFile();
-      
+
       if (fileUri) {
         const data = await excelService.parseExcelFile(fileUri);
-        
+
         let importSummary = 'Import Summary:\n';
-        if (data.lectures) importSummary += `• ${data.lectures.length} lectures\n`;
+        if (data.lectures)
+          importSummary += `• ${data.lectures.length} lectures\n`;
         if (data.exams) importSummary += `• ${data.exams.length} exams\n`;
-        if (data.students) importSummary += `• ${data.students.length} students\n`;
-        
-        Alert.alert(
-          'Import Successful',
-          importSummary,
-          [{ text: 'OK' }]
-        );
-        
+        if (data.students)
+          importSummary += `• ${data.students.length} students\n`;
+
+        Alert.alert('Import Successful', importSummary, [{ text: 'OK' }]);
+
         // Schedule notifications for new exams
         if (data.exams) {
           for (const exam of data.exams) {
@@ -94,7 +112,10 @@ export default function AdminDashboard() {
         }
       }
     } catch (error) {
-      Alert.alert('Import Failed', error instanceof Error ? error.message : 'Failed to import Excel file');
+      Alert.alert(
+        'Import Failed',
+        error instanceof Error ? error.message : 'Failed to import Excel file'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -114,29 +135,25 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Admin logout initiated');
-              await logout();
-              console.log('Admin logout completed');
-              // Navigation will be handled automatically by the auth context
-            } catch (error) {
-              console.error('Logout error:', error);
-              // Force navigation even if logout fails
-              router.replace('/login');
-            }
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            console.log('Admin logout initiated');
+            await logout();
+            console.log('Admin logout completed');
+            // Navigation will be handled automatically by the auth context
+          } catch (error) {
+            console.error('Logout error:', error);
+            // Force navigation even if logout fails
+            router.replace('/login-selection');
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   if (!user || user.role !== 'admin') {
@@ -145,20 +162,27 @@ export default function AdminDashboard() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <LinearGradient
           colors={['#2563EB', '#1D4ED8']}
           style={styles.header}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}>
+          end={{ x: 1, y: 1 }}
+        >
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.welcomeText}>Welcome back,</Text>
               <Text style={styles.adminName}>{user.name}</Text>
               <Text style={styles.roleText}>Administrator</Text>
             </View>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
               <LogOut size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -172,19 +196,25 @@ export default function AdminDashboard() {
               <Text style={styles.quickImportTitle}>Quick Excel Import</Text>
             </View>
             <Text style={styles.quickImportDescription}>
-              Instantly upload lectures, exams, and student data from Excel files
+              Instantly upload lectures, exams, and student data from Excel
+              files
             </Text>
             <View style={styles.quickImportButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.sampleButton}
-                onPress={handleDownloadSample}>
+                onPress={handleDownloadSample}
+              >
                 <Download size={16} color="#2563EB" />
                 <Text style={styles.sampleButtonText}>Get Sample</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.importButton, isLoading && styles.importButtonDisabled]}
+              <TouchableOpacity
+                style={[
+                  styles.importButton,
+                  isLoading && styles.importButtonDisabled,
+                ]}
                 onPress={handleQuickImport}
-                disabled={isLoading}>
+                disabled={isLoading}
+              >
                 <Upload size={16} color="#FFFFFF" />
                 <Text style={styles.importButtonText}>
                   {isLoading ? 'Importing...' : 'Quick Import'}
@@ -205,7 +235,7 @@ export default function AdminDashboard() {
               <Text style={styles.statValue}>{adminStats.totalStudents}</Text>
               <Text style={styles.statLabel}>Total Students</Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: '#ECFDF5' }]}>
                 <BookOpen size={24} color="#059669" />
@@ -213,7 +243,7 @@ export default function AdminDashboard() {
               <Text style={styles.statValue}>{adminStats.totalLectures}</Text>
               <Text style={styles.statLabel}>Total Lectures</Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
                 <Calendar size={24} color="#EA580C" />
@@ -221,12 +251,14 @@ export default function AdminDashboard() {
               <Text style={styles.statValue}>{adminStats.upcomingExams}</Text>
               <Text style={styles.statLabel}>Upcoming Exams</Text>
             </View>
-            
+
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: '#F3E8FF' }]}>
                 <Bell size={24} color="#7C3AED" />
               </View>
-              <Text style={styles.statValue}>{adminStats.pendingNotifications}</Text>
+              <Text style={styles.statValue}>
+                {adminStats.pendingNotifications}
+              </Text>
               <Text style={styles.statLabel}>Pending Alerts</Text>
             </View>
           </View>
@@ -240,12 +272,20 @@ export default function AdminDashboard() {
               <TouchableOpacity
                 key={action.id}
                 style={styles.actionCard}
-                onPress={() => router.push(action.route as any)}>
-                <View style={[styles.actionIcon, { backgroundColor: `${action.color}15` }]}>
+                onPress={() => router.push(action.route as any)}
+              >
+                <View
+                  style={[
+                    styles.actionIcon,
+                    { backgroundColor: `${action.color}15` },
+                  ]}
+                >
                   <action.icon size={24} color={action.color} />
                 </View>
                 <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionDescription}>{action.description}</Text>
+                <Text style={styles.actionDescription}>
+                  {action.description}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -261,20 +301,27 @@ export default function AdminDashboard() {
                 <Text style={styles.excelTitle}>Bulk Data Operations</Text>
               </View>
               <Text style={styles.excelDescription}>
-                Advanced Excel import/export with validation, error handling, and batch processing
+                Advanced Excel import/export with validation, error handling,
+                and batch processing
               </Text>
               <View style={styles.excelFeatures}>
                 <View style={styles.featureItem}>
                   <Text style={styles.featureBullet}>•</Text>
-                  <Text style={styles.featureText}>Automatic data validation</Text>
+                  <Text style={styles.featureText}>
+                    Automatic data validation
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
                   <Text style={styles.featureBullet}>•</Text>
-                  <Text style={styles.featureText}>Error reporting and correction</Text>
+                  <Text style={styles.featureText}>
+                    Error reporting and correction
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
                   <Text style={styles.featureBullet}>•</Text>
-                  <Text style={styles.featureText}>Batch notification scheduling</Text>
+                  <Text style={styles.featureText}>
+                    Batch notification scheduling
+                  </Text>
                 </View>
               </View>
             </View>
@@ -289,8 +336,9 @@ export default function AdminDashboard() {
               <Text style={styles.alertTitle}>Notification System Active</Text>
             </View>
             <Text style={styles.alertText}>
-              Automatic notifications are enabled for exam reminders and absence alerts. 
-              Guardians will receive SMS and email notifications as configured.
+              Automatic notifications are enabled for exam reminders and absence
+              alerts. Guardians will receive SMS and email notifications as
+              configured.
             </Text>
           </View>
         </View>

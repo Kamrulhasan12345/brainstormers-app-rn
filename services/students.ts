@@ -1,92 +1,65 @@
 import { supabase } from '@/lib/supabase';
 import {
-  StudentProfile,
   StudentWithProfile,
   CourseEnrollment,
+  Profile,
+  Student,
 } from '@/types/database-new';
 
 interface CreateStudentData {
   email: string;
   password: string;
-  first_name: string;
-  last_name: string;
-  student_id?: string;
-  date_of_birth?: string;
-  phone?: string;
-  address?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  guardian_name?: string;
-  guardian_phone?: string;
-  guardian_email?: string;
-  guardian_relationship?: string;
-  current_semester?: number;
+  full_name: string;
+  roll?: string;
 }
 
 interface UpdateStudentData {
-  first_name?: string;
-  last_name?: string;
-  date_of_birth?: string;
-  phone?: string;
-  address?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  guardian_name?: string;
-  guardian_phone?: string;
-  guardian_email?: string;
-  guardian_relationship?: string;
-  current_semester?: number;
-  is_active?: boolean;
+  full_name?: string;
+  roll?: string;
 }
 
 class StudentService {
   async getAllStudents(): Promise<StudentWithProfile[]> {
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('students')
       .select(
         `
         *,
-        student_profile:student_profiles(*),
+        profile:profiles(*),
         enrollments:course_enrollments(
           *,
           course:courses(
             id,
             name,
-            code,
-            credits
+            code
           )
         )
       `
       )
-      .eq('role', 'student')
-      .order('last_name');
+      .order('roll');
 
     if (error) throw error;
-    return data;
+    return data || [];
   }
 
-  async getStudentById(userId: string): Promise<StudentWithProfile | null> {
+  async getStudentById(studentId: string): Promise<StudentWithProfile | null> {
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('students')
       .select(
         `
         *,
-        student_profile:student_profiles(*),
+        profile:profiles(*),
         enrollments:course_enrollments(
           *,
           course:courses(
             id,
             name,
-            code,
-            credits,
-            department,
-            semester
+            code
           )
         )
       `
       )
-      .eq('user_id', userId)
-      .eq('role', 'student')
+      .eq('id', studentId)
       .single();
 
     if (error) throw error;
@@ -95,7 +68,7 @@ class StudentService {
 
   async createStudent(
     studentData: CreateStudentData
-  ): Promise<{ user: any; profile: StudentProfile }> {
+  ): Promise<{ user: any; student: Student; profile: Profile }> {
     // Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: studentData.email,
@@ -103,8 +76,7 @@ class StudentService {
       options: {
         data: {
           role: 'student',
-          first_name: studentData.first_name,
-          last_name: studentData.last_name,
+          full_name: studentData.full_name,
         },
       },
     });
@@ -112,87 +84,121 @@ class StudentService {
     if (authError) throw authError;
     if (!authData.user) throw new Error('Failed to create user');
 
-    // Create user profile
-    const { error: profileError } = await supabase
-      .from('user_profiles')
+    // Create profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
       .insert({
-        user_id: authData.user.id,
-        email: studentData.email,
+        id: authData.user.id,
         role: 'student',
-        first_name: studentData.first_name,
-        last_name: studentData.last_name,
-      });
-
-    if (profileError) throw profileError;
-
-    // Generate student ID if not provided
-    const student_id =
-      studentData.student_id || (await this.generateStudentId());
-
-    // Create student profile
-    const { data: studentProfile, error: studentProfileError } = await supabase
-      .from('student_profiles')
-      .insert({
-        user_id: authData.user.id,
-        student_id,
-        first_name: studentData.first_name,
-        last_name: studentData.last_name,
-        date_of_birth: studentData.date_of_birth,
-        phone: studentData.phone,
-        address: studentData.address,
-        emergency_contact_name: studentData.emergency_contact_name,
-        emergency_contact_phone: studentData.emergency_contact_phone,
-        guardian_name: studentData.guardian_name,
-        guardian_phone: studentData.guardian_phone,
-        guardian_email: studentData.guardian_email,
-        guardian_relationship: studentData.guardian_relationship,
-        current_semester: studentData.current_semester || 1,
+        full_name: studentData.full_name,
       })
       .select()
       .single();
 
-    if (studentProfileError) throw studentProfileError;
+    if (profileError) throw profileError;
+
+    // Generate roll number if not provided
+    const roll = studentData.roll || (await this.generateRollNumber());
+
+    // Create student record
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .insert({
+        id: authData.user.id,
+        roll,
+      })
+      .select()
+      .single();
+
+    if (studentError) throw studentError;
 
     return {
       user: authData.user,
-      profile: studentProfile,
+      student,
+      profile,
     };
   }
 
   async updateStudent(
-    userId: string,
+    studentId: string,
     updates: UpdateStudentData
-  ): Promise<StudentProfile> {
-    const { data, error } = await supabase
-      .from('student_profiles')
-      .update(updates)
-      .eq('user_id', userId)
-      .select()
+  ): Promise<{ student: Student; profile?: Profile }> {
+    const updatePromises = [];
+
+    // Update student table if roll is provided
+    if (updates.roll) {
+      updatePromises.push(
+        supabase
+          .from('students')
+          .update({ roll: updates.roll })
+          .eq('id', studentId)
+          .select()
+          .single()
+      );
+    }
+
+    // Update profile table if full_name is provided
+    if (updates.full_name) {
+      updatePromises.push(
+        supabase
+          .from('profiles')
+          .update({ full_name: updates.full_name })
+          .eq('id', studentId)
+          .select()
+          .single()
+      );
+    }
+
+    const results = await Promise.all(updatePromises);
+
+    // Check for errors
+    for (const result of results) {
+      if (result.error) throw result.error;
+    }
+
+    // Get updated student data
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('*')
+      .eq('id', studentId)
       .single();
 
-    if (error) throw error;
-    return data;
+    if (studentError) throw studentError;
+
+    return { student };
   }
 
-  async deleteStudent(userId: string): Promise<void> {
-    // Soft delete by deactivating
-    const { error: profileError } = await supabase
-      .from('student_profiles')
-      .update({ is_active: false })
-      .eq('user_id', userId);
-
-    if (profileError) throw profileError;
-
-    // Also deactivate enrollments
+  async deleteStudent(studentId: string): Promise<void> {
+    // First, update any active enrollments to dropped
     const { error: enrollmentError } = await supabase
       .from('course_enrollments')
       .update({ status: 'dropped' })
-      .eq('student_id', userId);
+      .eq('student_id', studentId)
+      .eq('status', 'active');
 
     if (enrollmentError) throw enrollmentError;
+
+    // Delete from students table (this will cascade due to foreign key constraints)
+    const { error: studentError } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', studentId);
+
+    if (studentError) throw studentError;
+
+    // Delete from profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', studentId);
+
+    if (profileError) throw profileError;
+
+    // Note: Auth user deletion should be handled separately by admin
+    // as it requires elevated permissions
   }
 
-  async enrollStudentInCourse(
+  async enrollInCourse(
     studentId: string,
     courseId: string
   ): Promise<CourseEnrollment> {
@@ -214,10 +220,7 @@ class StudentService {
     return data;
   }
 
-  async unenrollStudentFromCourse(
-    studentId: string,
-    courseId: string
-  ): Promise<void> {
+  async unenrollFromCourse(studentId: string, courseId: string): Promise<void> {
     const { error } = await supabase
       .from('course_enrollments')
       .update({ status: 'dropped' })
@@ -240,19 +243,19 @@ class StudentService {
       .eq('status', 'active');
 
     if (error) throw error;
-    return data;
+    return data || [];
   }
 
-  private async generateStudentId(): Promise<string> {
+  private async generateRollNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const { count, error } = await supabase
-      .from('student_profiles')
+      .from('students')
       .select('*', { count: 'exact', head: true });
 
     if (error) throw error;
 
     const nextNumber = (count || 0) + 1;
-    return `STU${year}${nextNumber.toString().padStart(4, '0')}`;
+    return `${year}-STU-${nextNumber.toString().padStart(4, '0')}`;
   }
 
   private async sendEnrollmentNotification(
@@ -274,10 +277,9 @@ class StudentService {
       .insert({
         recipient_id: studentId,
         title: 'Course Enrollment',
-        message: `You have been enrolled in ${course.code} - ${course.name}`,
-        type: 'course_enrollment',
-        related_id: courseId,
-        related_type: 'course',
+        body: `You have been enrolled in ${course.code} - ${course.name}`,
+        type: 'success',
+        link: `/courses/${courseId}`,
       });
 
     if (notificationError) {
@@ -290,52 +292,20 @@ class StudentService {
 
   async searchStudents(query: string): Promise<StudentWithProfile[]> {
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('students')
       .select(
         `
         *,
-        student_profile:student_profiles(*)
+        profile:profiles(*)
       `
       )
-      .eq('role', 'student')
-      .or(
-        `first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`
-      )
-      .order('last_name');
-
-    if (error) throw error;
-    return data;
-  }
-
-  async enrollInCourse(
-    studentUserId: string,
-    courseId: string
-  ): Promise<CourseEnrollment> {
-    const { data, error } = await supabase
-      .from('course_enrollments')
-      .insert({
-        student_id: studentUserId,
-        course_id: courseId,
-        status: 'active',
+      .or(`roll.ilike.%${query}%,profile.full_name.ilike.%${query}%`, {
+        foreignTable: 'profiles',
       })
-      .select()
-      .single();
+      .order('roll');
 
     if (error) throw error;
-    return data;
-  }
-
-  async unenrollFromCourse(
-    studentUserId: string,
-    courseId: string
-  ): Promise<void> {
-    const { error } = await supabase
-      .from('course_enrollments')
-      .update({ status: 'dropped' })
-      .eq('student_id', studentUserId)
-      .eq('course_id', courseId);
-
-    if (error) throw error;
+    return data || [];
   }
 }
 

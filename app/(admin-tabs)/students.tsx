@@ -35,19 +35,8 @@ import { StudentWithProfile, CourseWithDetails } from '@/types/database-new';
 interface StudentFormData {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
-  studentId: string;
-  dateOfBirth: string;
-  phone: string;
-  address: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
-  guardianName: string;
-  guardianPhone: string;
-  guardianEmail: string;
-  guardianRelationship: string;
-  currentSemester: number;
+  fullName: string;
+  roll: string;
 }
 
 export default function AdminStudentsScreen() {
@@ -65,23 +54,11 @@ export default function AdminStudentsScreen() {
     useState<StudentWithProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
   const [formData, setFormData] = useState<StudentFormData>({
     email: '',
     password: '',
-    firstName: '',
-    lastName: '',
-    studentId: '',
-    dateOfBirth: '',
-    phone: '',
-    address: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    guardianName: '',
-    guardianPhone: '',
-    guardianEmail: '',
-    guardianRelationship: 'Parent',
-    currentSemester: 1,
+    fullName: '',
+    roll: '',
   });
 
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -119,12 +96,10 @@ export default function AdminStudentsScreen() {
 
     const filtered = students.filter(
       (student) =>
-        student.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.student_profile?.student_id
+        student.profile?.full_name
           ?.toLowerCase()
-          .includes(searchQuery.toLowerCase())
+          .includes(searchQuery.toLowerCase()) ||
+        student.roll?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredStudents(filtered);
   };
@@ -133,32 +108,15 @@ export default function AdminStudentsScreen() {
     setFormData({
       email: '',
       password: '',
-      firstName: '',
-      lastName: '',
-      studentId: '',
-      dateOfBirth: '',
-      phone: '',
-      address: '',
-      emergencyContactName: '',
-      emergencyContactPhone: '',
-      guardianName: '',
-      guardianPhone: '',
-      guardianEmail: '',
-      guardianRelationship: 'Parent',
-      currentSemester: 1,
+      fullName: '',
+      roll: '',
     });
   };
-
   const handleAddStudent = async () => {
-    if (
-      !formData.firstName ||
-      !formData.lastName ||
-      !formData.email ||
-      !formData.password
-    ) {
+    if (!formData.email || !formData.password || !formData.fullName) {
       Alert.alert(
         'Error',
-        'Please fill in all required fields (Name, Email, Password)'
+        'Please fill in all required fields (Email, Password, Full Name)'
       );
       return;
     }
@@ -168,19 +126,8 @@ export default function AdminStudentsScreen() {
       await studentService.createStudent({
         email: formData.email,
         password: formData.password,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        student_id: formData.studentId || undefined,
-        date_of_birth: formData.dateOfBirth || undefined,
-        phone: formData.phone || undefined,
-        address: formData.address || undefined,
-        emergency_contact_name: formData.emergencyContactName || undefined,
-        emergency_contact_phone: formData.emergencyContactPhone || undefined,
-        guardian_name: formData.guardianName || undefined,
-        guardian_phone: formData.guardianPhone || undefined,
-        guardian_email: formData.guardianEmail || undefined,
-        guardian_relationship: formData.guardianRelationship || undefined,
-        current_semester: formData.currentSemester,
+        full_name: formData.fullName,
+        roll: formData.roll,
       });
 
       setShowAddModal(false);
@@ -196,26 +143,16 @@ export default function AdminStudentsScreen() {
   };
 
   const handleEditStudent = async () => {
-    if (!selectedStudent || !formData.firstName || !formData.lastName) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    if (!selectedStudent || !formData.fullName) {
+      Alert.alert('Error', 'Please fill in the full name');
       return;
     }
 
     try {
       setSubmitting(true);
-      await studentService.updateStudent(selectedStudent.user_id, {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        date_of_birth: formData.dateOfBirth || undefined,
-        phone: formData.phone || undefined,
-        address: formData.address || undefined,
-        emergency_contact_name: formData.emergencyContactName || undefined,
-        emergency_contact_phone: formData.emergencyContactPhone || undefined,
-        guardian_name: formData.guardianName || undefined,
-        guardian_phone: formData.guardianPhone || undefined,
-        guardian_email: formData.guardianEmail || undefined,
-        guardian_relationship: formData.guardianRelationship || undefined,
-        current_semester: formData.currentSemester,
+      await studentService.updateStudent(selectedStudent.id, {
+        full_name: formData.fullName,
+        roll: formData.roll,
       });
 
       setShowEditModal(false);
@@ -234,7 +171,9 @@ export default function AdminStudentsScreen() {
   const handleDeleteStudent = (student: StudentWithProfile) => {
     Alert.alert(
       'Delete Student',
-      `Are you sure you want to delete ${student.first_name} ${student.last_name}?`,
+      `Are you sure you want to delete ${
+        student.profile?.full_name || 'this student'
+      }?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -242,7 +181,7 @@ export default function AdminStudentsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await studentService.deleteStudent(student.user_id);
+              await studentService.deleteStudent(student.id);
               loadData();
               Alert.alert('Success', 'Student deleted successfully');
             } catch (error) {
@@ -261,24 +200,10 @@ export default function AdminStudentsScreen() {
   const openEditModal = (student: StudentWithProfile) => {
     setSelectedStudent(student);
     setFormData({
-      email: student.email || '',
-      password: '',
-      firstName: student.first_name || '',
-      lastName: student.last_name || '',
-      studentId: student.student_profile?.student_id || '',
-      dateOfBirth: student.student_profile?.date_of_birth || '',
-      phone: student.student_profile?.phone || '',
-      address: student.student_profile?.address || '',
-      emergencyContactName:
-        student.student_profile?.emergency_contact_name || '',
-      emergencyContactPhone:
-        student.student_profile?.emergency_contact_phone || '',
-      guardianName: student.student_profile?.guardian_name || '',
-      guardianPhone: student.student_profile?.guardian_phone || '',
-      guardianEmail: student.student_profile?.guardian_email || '',
-      guardianRelationship:
-        student.student_profile?.guardian_relationship || 'Parent',
-      currentSemester: student.student_profile?.current_semester || 1,
+      email: '', // Don't pre-fill email for editing
+      password: '', // Don't pre-fill password for editing
+      fullName: student.profile?.full_name || '',
+      roll: student.roll || '',
     });
     setShowEditModal(true);
   };
@@ -297,10 +222,7 @@ export default function AdminStudentsScreen() {
 
     try {
       setSubmitting(true);
-      await studentService.enrollInCourse(
-        selectedStudent.user_id,
-        selectedCourseId
-      );
+      await studentService.enrollInCourse(selectedStudent.id, selectedCourseId);
       setShowEnrollModal(false);
       setSelectedStudent(null);
       setSelectedCourseId('');
@@ -326,12 +248,12 @@ export default function AdminStudentsScreen() {
         </View>
         <View style={styles.studentInfo}>
           <Text style={styles.studentName}>
-            {student.first_name} {student.last_name}
+            {student.profile?.full_name || 'Unknown Student'}
           </Text>
-          <Text style={styles.studentEmail}>{student.email}</Text>
-          <Text style={styles.studentId}>
-            ID: {student.student_profile?.student_id || 'Not assigned'}
+          <Text style={styles.studentEmail}>
+            Roll: {student.roll || 'Not assigned'}
           </Text>
+          <Text style={styles.studentId}>ID: {student.id}</Text>
         </View>
         <View style={styles.actionButtons}>
           <TouchableOpacity
@@ -360,13 +282,14 @@ export default function AdminStudentsScreen() {
         <View style={styles.detailRow}>
           <Phone size={14} color="#6B7280" />
           <Text style={styles.detailText}>
-            {student.student_profile?.phone || 'No phone'}
+            Role: {student.profile?.role || 'student'}
           </Text>
         </View>
         <View style={styles.detailRow}>
           <Calendar size={14} color="#6B7280" />
           <Text style={styles.detailText}>
-            Semester {student.student_profile?.current_semester || 1}
+            Created:{' '}
+            {new Date(student.profile?.created_at || '').toLocaleDateString()}
           </Text>
         </View>
         <View style={styles.detailRow}>
@@ -453,7 +376,7 @@ export default function AdminStudentsScreen() {
       <FlatList
         data={filteredStudents}
         renderItem={renderStudentItem}
-        keyExtractor={(item) => item.user_id}
+        keyExtractor={(item) => item.id}
         style={styles.studentsList}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -503,9 +426,9 @@ export default function AdminStudentsScreen() {
           </View>
 
           <ScrollView style={styles.formContainer}>
-            {/* Basic Information */}
+            {/* Student Information */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Basic Information</Text>
+              <Text style={styles.sectionTitle}>Student Information</Text>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Email *</Text>
@@ -534,191 +457,27 @@ export default function AdminStudentsScreen() {
                 />
               </View>
 
-              <View style={styles.row}>
-                <View style={[styles.inputGroup, styles.halfWidth]}>
-                  <Text style={styles.inputLabel}>First Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.firstName}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, firstName: text })
-                    }
-                    placeholder="John"
-                  />
-                </View>
-                <View style={[styles.inputGroup, styles.halfWidth]}>
-                  <Text style={styles.inputLabel}>Last Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lastName}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, lastName: text })
-                    }
-                    placeholder="Doe"
-                  />
-                </View>
-              </View>
-
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Student ID</Text>
+                <Text style={styles.inputLabel}>Full Name *</Text>
                 <TextInput
                   style={styles.input}
-                  value={formData.studentId}
+                  value={formData.fullName}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, studentId: text })
+                    setFormData({ ...formData, fullName: text })
                   }
-                  placeholder="Auto-generated if empty"
+                  placeholder="John Doe"
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Date of Birth</Text>
+                <Text style={styles.inputLabel}>Roll Number *</Text>
                 <TextInput
                   style={styles.input}
-                  value={formData.dateOfBirth}
+                  value={formData.roll}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, dateOfBirth: text })
+                    setFormData({ ...formData, roll: text })
                   }
-                  placeholder="YYYY-MM-DD"
-                />
-              </View>
-            </View>
-
-            {/* Contact Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Contact Information</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.phone}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, phone: text })
-                  }
-                  placeholder="+1234567890"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Address</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={formData.address}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, address: text })
-                  }
-                  placeholder="Full address"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            </View>
-
-            {/* Emergency Contact */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Emergency Contact</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Emergency Contact Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.emergencyContactName}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, emergencyContactName: text })
-                  }
-                  placeholder="Contact person name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Emergency Contact Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.emergencyContactPhone}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, emergencyContactPhone: text })
-                  }
-                  placeholder="+1234567890"
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </View>
-
-            {/* Guardian Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Guardian Information</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Guardian Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianName}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianName: text })
-                  }
-                  placeholder="Guardian name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Guardian Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianPhone}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianPhone: text })
-                  }
-                  placeholder="+1234567890"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Guardian Email</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianEmail}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianEmail: text })
-                  }
-                  placeholder="guardian@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Relationship</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianRelationship}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianRelationship: text })
-                  }
-                  placeholder="Parent, Guardian, etc."
-                />
-              </View>
-            </View>
-
-            {/* Academic Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Academic Information</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Current Semester</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.currentSemester.toString()}
-                  onChangeText={(text) =>
-                    setFormData({
-                      ...formData,
-                      currentSemester: parseInt(text) || 1,
-                    })
-                  }
-                  placeholder="1"
-                  keyboardType="numeric"
+                  placeholder="2024-STU-0001"
                 />
               </View>
             </View>
@@ -761,183 +520,31 @@ export default function AdminStudentsScreen() {
           </View>
 
           <ScrollView style={styles.formContainer}>
-            {/* Same form fields as Add modal, but without email and password */}
+            {/* Student Information */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Basic Information</Text>
-
-              <View style={styles.row}>
-                <View style={[styles.inputGroup, styles.halfWidth]}>
-                  <Text style={styles.inputLabel}>First Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.firstName}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, firstName: text })
-                    }
-                    placeholder="John"
-                  />
-                </View>
-                <View style={[styles.inputGroup, styles.halfWidth]}>
-                  <Text style={styles.inputLabel}>Last Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lastName}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, lastName: text })
-                    }
-                    placeholder="Doe"
-                  />
-                </View>
-              </View>
+              <Text style={styles.sectionTitle}>Student Information</Text>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Date of Birth</Text>
+                <Text style={styles.inputLabel}>Full Name *</Text>
                 <TextInput
                   style={styles.input}
-                  value={formData.dateOfBirth}
+                  value={formData.fullName}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, dateOfBirth: text })
+                    setFormData({ ...formData, fullName: text })
                   }
-                  placeholder="YYYY-MM-DD"
-                />
-              </View>
-            </View>
-
-            {/* Contact Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Contact Information</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.phone}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, phone: text })
-                  }
-                  placeholder="+1234567890"
-                  keyboardType="phone-pad"
+                  placeholder="John Doe"
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Address</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={formData.address}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, address: text })
-                  }
-                  placeholder="Full address"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            </View>
-
-            {/* Emergency Contact */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Emergency Contact</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Emergency Contact Name</Text>
+                <Text style={styles.inputLabel}>Roll Number</Text>
                 <TextInput
                   style={styles.input}
-                  value={formData.emergencyContactName}
+                  value={formData.roll}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, emergencyContactName: text })
+                    setFormData({ ...formData, roll: text })
                   }
-                  placeholder="Contact person name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Emergency Contact Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.emergencyContactPhone}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, emergencyContactPhone: text })
-                  }
-                  placeholder="+1234567890"
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </View>
-
-            {/* Guardian Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Guardian Information</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Guardian Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianName}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianName: text })
-                  }
-                  placeholder="Guardian name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Guardian Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianPhone}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianPhone: text })
-                  }
-                  placeholder="+1234567890"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Guardian Email</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianEmail}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianEmail: text })
-                  }
-                  placeholder="guardian@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Relationship</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.guardianRelationship}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, guardianRelationship: text })
-                  }
-                  placeholder="Parent, Guardian, etc."
-                />
-              </View>
-            </View>
-
-            {/* Academic Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Academic Information</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Current Semester</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.currentSemester.toString()}
-                  onChangeText={(text) =>
-                    setFormData({
-                      ...formData,
-                      currentSemester: parseInt(text) || 1,
-                    })
-                  }
-                  placeholder="1"
-                  keyboardType="numeric"
+                  placeholder="2024-STU-0001"
                 />
               </View>
             </View>
@@ -963,7 +570,7 @@ export default function AdminStudentsScreen() {
               <X size={24} color="#007AFF" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>
-              Enroll {selectedStudent?.first_name} {selectedStudent?.last_name}
+              Enroll {selectedStudent?.profile?.full_name || 'Student'}
             </Text>
             <TouchableOpacity
               onPress={handleEnrollStudent}
@@ -1012,19 +619,8 @@ export default function AdminStudentsScreen() {
                           styles.courseOptionCodeSelected,
                       ]}
                     >
-                      {course.code} • {course.credits} credits
+                      {course.code}
                     </Text>
-                    {course.department && (
-                      <Text
-                        style={[
-                          styles.courseOptionDepartment,
-                          selectedCourseId === course.id &&
-                            styles.courseOptionDepartmentSelected,
-                        ]}
-                      >
-                        {course.department}
-                      </Text>
-                    )}
                   </View>
                   <View
                     style={[

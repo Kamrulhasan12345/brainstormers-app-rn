@@ -9,145 +9,56 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      user_profiles: {
-        Row: {
-          user_id: string;
-          email: string;
-          role: 'student' | 'teacher' | 'admin';
-          first_name: string;
-          last_name: string;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          email: string;
-          role: 'student' | 'teacher' | 'admin';
-          first_name: string;
-          last_name: string;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          user_id?: string;
-          email?: string;
-          role?: 'student' | 'teacher' | 'admin';
-          first_name?: string;
-          last_name?: string;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      courses: {
+      activity_logs: {
         Row: {
           id: string;
-          name: string;
-          code: string;
-          description: string | null;
-          credits: number;
-          department: string | null;
-          semester: string | null;
-          academic_year: string | null;
-          instructor_id: string | null;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
+          actor_id: string | null;
+          action: string;
+          entity: string;
+          entity_id: string | null;
+          occurred_at: string;
         };
         Insert: {
           id?: string;
-          name: string;
-          code: string;
-          description?: string | null;
-          credits?: number;
-          department?: string | null;
-          semester?: string | null;
-          academic_year?: string | null;
-          instructor_id?: string | null;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          actor_id?: string | null;
+          action: string;
+          entity: string;
+          entity_id?: string | null;
+          occurred_at?: string;
         };
         Update: {
           id?: string;
-          name?: string;
-          code?: string;
-          description?: string | null;
-          credits?: number;
-          department?: string | null;
-          semester?: string | null;
-          academic_year?: string | null;
-          instructor_id?: string | null;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          actor_id?: string | null;
+          action?: string;
+          entity?: string;
+          entity_id?: string | null;
+          occurred_at?: string;
         };
       };
-      student_profiles: {
+      attendances: {
         Row: {
           id: string;
-          user_id: string;
+          batch_id: string;
           student_id: string;
-          first_name: string;
-          last_name: string;
-          date_of_birth: string | null;
-          phone: string | null;
-          address: string | null;
-          emergency_contact_name: string | null;
-          emergency_contact_phone: string | null;
-          guardian_name: string | null;
-          guardian_phone: string | null;
-          guardian_email: string | null;
-          guardian_relationship: string | null;
-          admission_date: string;
-          current_semester: number;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
+          recorded_by: string | null;
+          status: 'present' | 'absent' | 'late' | 'excused';
+          recorded_at: string;
         };
         Insert: {
           id?: string;
-          user_id: string;
+          batch_id: string;
           student_id: string;
-          first_name: string;
-          last_name: string;
-          date_of_birth?: string | null;
-          phone?: string | null;
-          address?: string | null;
-          emergency_contact_name?: string | null;
-          emergency_contact_phone?: string | null;
-          guardian_name?: string | null;
-          guardian_phone?: string | null;
-          guardian_email?: string | null;
-          guardian_relationship?: string | null;
-          admission_date?: string;
-          current_semester?: number;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          recorded_by?: string | null;
+          status?: 'present' | 'absent' | 'late' | 'excused';
+          recorded_at?: string;
         };
         Update: {
           id?: string;
-          user_id?: string;
+          batch_id?: string;
           student_id?: string;
-          first_name?: string;
-          last_name?: string;
-          date_of_birth?: string | null;
-          phone?: string | null;
-          address?: string | null;
-          emergency_contact_name?: string | null;
-          emergency_contact_phone?: string | null;
-          guardian_name?: string | null;
-          guardian_phone?: string | null;
-          guardian_email?: string | null;
-          guardian_relationship?: string | null;
-          admission_date?: string;
-          current_semester?: number;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          recorded_by?: string | null;
+          status?: 'present' | 'absent' | 'late' | 'excused';
+          recorded_at?: string;
         };
       };
       course_enrollments: {
@@ -156,181 +67,249 @@ export interface Database {
           student_id: string;
           course_id: string;
           enrollment_date: string;
-          status: 'active' | 'completed' | 'dropped' | 'failed';
-          grade: string | null;
-          created_at: string;
-          updated_at: string;
+          status: 'active' | 'dropped' | 'completed';
         };
         Insert: {
           id?: string;
           student_id: string;
           course_id: string;
           enrollment_date?: string;
-          status?: 'active' | 'completed' | 'dropped' | 'failed';
-          grade?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          status?: 'active' | 'dropped' | 'completed';
         };
         Update: {
           id?: string;
           student_id?: string;
           course_id?: string;
           enrollment_date?: string;
-          status?: 'active' | 'completed' | 'dropped' | 'failed';
-          grade?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          status?: 'active' | 'dropped' | 'completed';
         };
       };
-      lectures: {
+      courses: {
         Row: {
           id: string;
-          title: string;
-          description: string | null;
-          scheduled_at: string;
-          course_id: string | null;
-          instructor_id: string | null;
-          duration_minutes: number;
-          location: string | null;
-          is_mandatory: boolean;
+          name: string;
+          code: string;
           created_at: string;
-          updated_at: string;
         };
         Insert: {
           id?: string;
-          title: string;
-          description?: string | null;
-          scheduled_at: string;
-          course_id?: string | null;
-          instructor_id?: string | null;
-          duration_minutes?: number;
-          location?: string | null;
-          is_mandatory?: boolean;
+          name: string;
+          code: string;
           created_at?: string;
-          updated_at?: string;
         };
         Update: {
           id?: string;
-          title?: string;
-          description?: string | null;
-          scheduled_at?: string;
-          course_id?: string | null;
-          instructor_id?: string | null;
-          duration_minutes?: number;
-          location?: string | null;
-          is_mandatory?: boolean;
+          name?: string;
+          code?: string;
           created_at?: string;
-          updated_at?: string;
+        };
+      };
+      exam_attendances: {
+        Row: {
+          id: string;
+          batch_id: string;
+          student_id: string;
+          score: number | null;
+          recorded_by: string | null;
+          status: 'present' | 'absent' | 'late' | 'excused';
+          recorded_at: string;
+        };
+        Insert: {
+          id?: string;
+          batch_id: string;
+          student_id: string;
+          score?: number | null;
+          recorded_by?: string | null;
+          status?: 'present' | 'absent' | 'late' | 'excused';
+          recorded_at?: string;
+        };
+        Update: {
+          id?: string;
+          batch_id?: string;
+          student_id?: string;
+          score?: number | null;
+          recorded_by?: string | null;
+          status?: 'present' | 'absent' | 'late' | 'excused';
+          recorded_at?: string;
+        };
+      };
+      exam_batches: {
+        Row: {
+          id: string;
+          exam_id: string;
+          scheduled_start: string;
+          scheduled_end: string;
+          notes: string | null;
+          status: 'scheduled' | 'completed' | 'cancelled' | 'postponed';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          exam_id: string;
+          scheduled_start: string;
+          scheduled_end: string;
+          notes?: string | null;
+          status?: 'scheduled' | 'completed' | 'cancelled' | 'postponed';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          exam_id?: string;
+          scheduled_start?: string;
+          scheduled_end?: string;
+          notes?: string | null;
+          status?: 'scheduled' | 'completed' | 'cancelled' | 'postponed';
+          created_at?: string;
         };
       };
       exams: {
         Row: {
           id: string;
-          title: string;
-          description: string | null;
-          scheduled_at: string;
+          name: string;
           course_id: string | null;
-          instructor_id: string | null;
-          duration_minutes: number;
-          location: string | null;
-          total_marks: number;
-          passing_marks: number;
+          subject: string;
+          chapter: string | null;
+          topic: string | null;
+          question_by: string | null;
           created_at: string;
-          updated_at: string;
         };
         Insert: {
           id?: string;
-          title: string;
-          description?: string | null;
+          name: string;
+          course_id?: string | null;
+          subject: string;
+          chapter?: string | null;
+          topic?: string | null;
+          question_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          course_id?: string | null;
+          subject?: string;
+          chapter?: string | null;
+          topic?: string | null;
+          question_by?: string | null;
+          created_at?: string;
+        };
+      };
+      lecture_batches: {
+        Row: {
+          id: string;
+          lecture_id: string;
           scheduled_at: string;
-          course_id?: string | null;
-          instructor_id?: string | null;
-          duration_minutes?: number;
-          location?: string | null;
-          total_marks?: number;
-          passing_marks?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          description?: string | null;
-          scheduled_at?: string;
-          course_id?: string | null;
-          instructor_id?: string | null;
-          duration_minutes?: number;
-          location?: string | null;
-          total_marks?: number;
-          passing_marks?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      attendance: {
-        Row: {
-          id: string;
-          student_id: string;
-          lecture_id: string;
-          status: 'present' | 'absent' | 'late' | 'excused';
-          marked_by: string | null;
-          marked_at: string;
-          notes: string | null;
           created_at: string;
+          status:
+            | 'scheduled'
+            | 'completed'
+            | 'postponed'
+            | 'cancelled'
+            | 'not_held';
+          notes: string | null;
+          end_time: string | null;
         };
         Insert: {
           id?: string;
-          student_id: string;
           lecture_id: string;
-          status?: 'present' | 'absent' | 'late' | 'excused';
-          marked_by?: string | null;
-          marked_at?: string;
-          notes?: string | null;
+          scheduled_at: string;
           created_at?: string;
+          status?:
+            | 'scheduled'
+            | 'completed'
+            | 'postponed'
+            | 'cancelled'
+            | 'not_held';
+          notes?: string | null;
+          end_time?: string | null;
         };
         Update: {
           id?: string;
-          student_id?: string;
           lecture_id?: string;
-          status?: 'present' | 'absent' | 'late' | 'excused';
-          marked_by?: string | null;
-          marked_at?: string;
-          notes?: string | null;
+          scheduled_at?: string;
           created_at?: string;
+          status?:
+            | 'scheduled'
+            | 'completed'
+            | 'postponed'
+            | 'cancelled'
+            | 'not_held';
+          notes?: string | null;
+          end_time?: string | null;
         };
       };
-      exam_attendance: {
+      lecture_notes: {
         Row: {
           id: string;
-          student_id: string;
-          exam_id: string;
-          status: 'present' | 'absent' | 'excused';
-          marks_obtained: number | null;
-          marked_by: string | null;
-          marked_at: string;
-          notes: string | null;
+          batch_id: string;
+          uploaded_by: string | null;
+          file_url: string;
+          uploaded_at: string;
+        };
+        Insert: {
+          id?: string;
+          batch_id: string;
+          uploaded_by?: string | null;
+          file_url: string;
+          uploaded_at?: string;
+        };
+        Update: {
+          id?: string;
+          batch_id?: string;
+          uploaded_by?: string | null;
+          file_url?: string;
+          uploaded_at?: string;
+        };
+      };
+      lecture_reviews: {
+        Row: {
+          id: string;
+          batch_id: string;
+          reviewer_id: string;
+          role: 'student' | 'teacher' | 'staff';
+          comment: string | null;
+          reviewed_at: string;
+        };
+        Insert: {
+          id?: string;
+          batch_id: string;
+          reviewer_id: string;
+          role: 'student' | 'teacher' | 'staff';
+          comment?: string | null;
+          reviewed_at?: string;
+        };
+        Update: {
+          id?: string;
+          batch_id?: string;
+          reviewer_id?: string;
+          role?: 'student' | 'teacher' | 'staff';
+          comment?: string | null;
+          reviewed_at?: string;
+        };
+      };
+      lectures: {
+        Row: {
+          id: string;
+          course_id: string;
+          subject: string;
+          chapter: string | null;
+          topic: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
-          student_id: string;
-          exam_id: string;
-          status?: 'present' | 'absent' | 'excused';
-          marks_obtained?: number | null;
-          marked_by?: string | null;
-          marked_at?: string;
-          notes?: string | null;
+          course_id: string;
+          subject: string;
+          chapter?: string | null;
+          topic?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
-          student_id?: string;
-          exam_id?: string;
-          status?: 'present' | 'absent' | 'excused';
-          marks_obtained?: number | null;
-          marked_by?: string | null;
-          marked_at?: string;
-          notes?: string | null;
+          course_id?: string;
+          subject?: string;
+          chapter?: string | null;
+          topic?: string | null;
           created_at?: string;
         };
       };
@@ -338,62 +317,86 @@ export interface Database {
         Row: {
           id: string;
           recipient_id: string;
-          sender_id: string | null;
-          title: string;
-          message: string;
-          type:
-            | 'lecture_reminder'
-            | 'exam_reminder'
-            | 'lecture_missed'
-            | 'exam_missed'
-            | 'general'
-            | 'course_enrollment';
-          related_id: string | null;
-          related_type: string | null;
+          title: string | null;
+          body: string;
+          link: string | null;
+          expires_at: string | null;
+          type: 'info' | 'warning' | 'success' | 'error';
           is_read: boolean;
-          scheduled_for: string | null;
-          sent_at: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           recipient_id: string;
-          sender_id?: string | null;
-          title: string;
-          message: string;
-          type:
-            | 'lecture_reminder'
-            | 'exam_reminder'
-            | 'lecture_missed'
-            | 'exam_missed'
-            | 'general'
-            | 'course_enrollment';
-          related_id?: string | null;
-          related_type?: string | null;
+          title?: string | null;
+          body: string;
+          link?: string | null;
+          expires_at?: string | null;
+          type?: 'info' | 'warning' | 'success' | 'error';
           is_read?: boolean;
-          scheduled_for?: string | null;
-          sent_at?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           recipient_id?: string;
-          sender_id?: string | null;
-          title?: string;
-          message?: string;
-          type?:
-            | 'lecture_reminder'
-            | 'exam_reminder'
-            | 'lecture_missed'
-            | 'exam_missed'
-            | 'general'
-            | 'course_enrollment';
-          related_id?: string | null;
-          related_type?: string | null;
+          title?: string | null;
+          body?: string;
+          link?: string | null;
+          expires_at?: string | null;
+          type?: 'info' | 'warning' | 'success' | 'error';
           is_read?: boolean;
-          scheduled_for?: string | null;
-          sent_at?: string | null;
           created_at?: string;
+        };
+      };
+      profiles: {
+        Row: {
+          id: string;
+          role: 'admin' | 'teacher' | 'student';
+          full_name: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          role: 'admin' | 'teacher' | 'student';
+          full_name?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          role?: 'admin' | 'teacher' | 'student';
+          full_name?: string | null;
+          created_at?: string;
+        };
+      };
+      students: {
+        Row: {
+          id: string;
+          roll: string;
+        };
+        Insert: {
+          id: string;
+          roll: string;
+        };
+        Update: {
+          id?: string;
+          roll?: string;
+        };
+      };
+      teachers: {
+        Row: {
+          id: string;
+          designation: string | null;
+          department: string | null;
+        };
+        Insert: {
+          id: string;
+          designation?: string | null;
+          department?: string | null;
+        };
+        Update: {
+          id?: string;
+          designation?: string | null;
+          department?: string | null;
         };
       };
     };
@@ -401,42 +404,66 @@ export interface Database {
 }
 
 // Additional types for our application
+export type ActivityLog = Database['public']['Tables']['activity_logs']['Row'];
+export type Attendance = Database['public']['Tables']['attendances']['Row'];
 export type Course = Database['public']['Tables']['courses']['Row'];
-export type StudentProfile =
-  Database['public']['Tables']['student_profiles']['Row'];
 export type CourseEnrollment =
   Database['public']['Tables']['course_enrollments']['Row'];
-export type Lecture = Database['public']['Tables']['lectures']['Row'];
-export type Exam = Database['public']['Tables']['exams']['Row'];
-export type Attendance = Database['public']['Tables']['attendance']['Row'];
 export type ExamAttendance =
-  Database['public']['Tables']['exam_attendance']['Row'];
+  Database['public']['Tables']['exam_attendances']['Row'];
+export type ExamBatch = Database['public']['Tables']['exam_batches']['Row'];
+export type Exam = Database['public']['Tables']['exams']['Row'];
+export type LectureBatch =
+  Database['public']['Tables']['lecture_batches']['Row'];
+export type LectureNote = Database['public']['Tables']['lecture_notes']['Row'];
+export type LectureReview =
+  Database['public']['Tables']['lecture_reviews']['Row'];
+export type Lecture = Database['public']['Tables']['lectures']['Row'];
 export type Notification = Database['public']['Tables']['notifications']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Student = Database['public']['Tables']['students']['Row'];
+export type Teacher = Database['public']['Tables']['teachers']['Row'];
 
 // Extended types with relations
-export interface StudentWithProfile
-  extends Database['public']['Tables']['user_profiles']['Row'] {
-  student_profile?: StudentProfile;
-  enrollments?: (CourseEnrollment & { course: Course })[];
+export interface StudentWithProfile extends Student {
+  profile?: Profile;
+  enrollments?: (CourseEnrollment & { course?: Course })[];
+}
+
+export interface TeacherWithProfile extends Teacher {
+  profile?: Profile;
 }
 
 export interface CourseWithDetails extends Course {
-  instructor?: Database['public']['Tables']['user_profiles']['Row'];
-  enrollment_count?: number;
+  enrollments?: CourseEnrollment[];
   lectures?: Lecture[];
   exams?: Exam[];
+  enrollment_count?: number;
 }
 
 export interface LectureWithDetails extends Lecture {
   course?: Course;
-  instructor?: Database['public']['Tables']['user_profiles']['Row'];
+  batches?: LectureBatch[];
+}
+
+export interface LectureBatchWithDetails extends LectureBatch {
+  lecture?: Lecture;
+  attendances?: Attendance[];
+  lecture_notes?: LectureNote[];
+  reviews?: LectureReview[];
   attendance_count?: number;
   attendance_rate?: number;
 }
 
 export interface ExamWithDetails extends Exam {
   course?: Course;
-  instructor?: Database['public']['Tables']['user_profiles']['Row'];
+  question_by_profile?: Profile;
+  batches?: ExamBatch[];
+}
+
+export interface ExamBatchWithDetails extends ExamBatch {
+  exam?: Exam;
+  attendances?: ExamAttendance[];
   attendance_count?: number;
-  average_marks?: number;
+  average_score?: number;
 }

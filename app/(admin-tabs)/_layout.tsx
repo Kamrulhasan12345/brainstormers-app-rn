@@ -8,6 +8,8 @@ import {
   BookOpen,
   Bell,
   User,
+  GraduationCap,
+  UserCog,
 } from 'lucide-react-native';
 
 export default function AdminTabLayout() {
@@ -69,6 +71,24 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="courses"
+        options={{
+          title: 'Courses',
+          tabBarIcon: ({ size, color }) => (
+            <BookOpen size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="teachers"
+        options={{
+          title: 'Teachers',
+          tabBarIcon: ({ size, color }) => (
+            <UserCog size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="exams"
         options={{
           title: 'Exams',
@@ -82,7 +102,7 @@ export default function AdminTabLayout() {
         options={{
           title: 'Lectures',
           tabBarIcon: ({ size, color }) => (
-            <BookOpen size={size} color={color} />
+            <GraduationCap size={size} color={color} />
           ),
         }}
       />

@@ -4,7 +4,7 @@ import { User, LoginCredentials } from '@/types/auth';
 class AuthService {
   async login(credentials: LoginCredentials): Promise<User> {
     console.log('AuthService: Attempting login for', credentials.email);
-    
+
     if (isDemoMode()) {
       return this.handleDemoLogin(credentials);
     }
@@ -32,28 +32,23 @@ class AuthService {
       'admin@brainstormers.edu': {
         id: 'demo-admin-id',
         email: credentials.email,
-        name: 'Admin User',
+        full_name: 'Admin User',
         role: 'admin',
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       },
       'teacher@brainstormers.edu': {
         id: 'demo-teacher-id',
         email: credentials.email,
-        name: 'Dr. Rajesh Kumar',
+        full_name: 'Dr. Rajesh Kumar',
         role: 'teacher',
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       },
       'student@brainstormers.edu': {
         id: 'demo-student-id',
         email: credentials.email,
-        name: 'Arjun Sharma',
+        full_name: 'Arjun Sharma',
         role: 'student',
-        rollNumber: 'BS2027001',
-        class: 'HSC Science - Batch 2027',
-        phone: '+91 98765 43210',
-        guardianPhone: '+91 98765 43211',
-        guardianEmail: 'parent.arjun@gmail.com',
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       },
     };
 
@@ -89,21 +84,15 @@ class AuthService {
 
     return {
       id: data.id,
-      email: data.email,
-      name: data.name,
+      full_name: data.name,
       role: data.role,
-      rollNumber: data.roll_number,
-      class: data.class,
-      phone: data.phone,
-      guardianPhone: data.guardian_phone,
-      guardianEmail: data.guardian_email,
-      createdAt: data.created_at,
+      created_at: data.created_at,
     };
   }
 
   async logout(): Promise<void> {
     console.log('AuthService: Signing out');
-    
+
     if (isDemoMode()) {
       console.log('AuthService: Demo mode logout');
       return;
@@ -122,8 +111,10 @@ class AuthService {
       return null;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) return null;
 
     return await this.fetchUserProfile(user.id);
@@ -132,20 +123,15 @@ class AuthService {
   async signUp(userData: {
     email: string;
     password: string;
-    name: string;
+    full_name: string;
     role: 'student' | 'teacher' | 'admin';
-    rollNumber?: string;
-    class?: string;
-    phone?: string;
-    guardianPhone?: string;
-    guardianEmail?: string;
   }): Promise<User> {
     const { data, error } = await supabase.auth.signUp({
       email: userData.email,
       password: userData.password,
       options: {
         data: {
-          name: userData.name,
+          full_name: userData.full_name,
           role: userData.role,
         },
       },
@@ -160,19 +146,11 @@ class AuthService {
     }
 
     // Create profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: data.user.id,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        roll_number: userData.rollNumber,
-        class: userData.class,
-        phone: userData.phone,
-        guardian_phone: userData.guardianPhone,
-        guardian_email: userData.guardianEmail,
-      });
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: data.user.id,
+      full_name: userData.full_name,
+      role: userData.role,
+    });
 
     if (profileError) {
       throw new Error(profileError.message);
@@ -181,19 +159,16 @@ class AuthService {
     return {
       id: data.user.id,
       email: userData.email,
-      name: userData.name,
+      full_name: userData.full_name,
       role: userData.role,
-      rollNumber: userData.rollNumber,
-      class: userData.class,
-      phone: userData.phone,
-      guardianPhone: userData.guardianPhone,
-      guardianEmail: userData.guardianEmail,
-      createdAt: data.user.created_at,
+      created_at: data.user.created_at,
     };
   }
 
   async isAuthenticated(): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     return !!user;
   }
 }

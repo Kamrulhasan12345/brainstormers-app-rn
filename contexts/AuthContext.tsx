@@ -22,41 +22,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuthState();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        if (event === 'SIGNED_OUT' || !session?.user) {
-          console.log('User signed out, clearing state');
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        console.log('User signed out, clearing state');
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+        return;
+      }
+
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          console.log('User signed in, fetching profile');
+          const user = await authService.getCurrentUser();
+          console.log('User profile loaded:', user);
+          setAuthState({
+            user,
+            isLoading: false,
+            isAuthenticated: !!user,
+          });
+        } catch (error) {
+          console.error('Error getting user profile:', error);
           setAuthState({
             user: null,
             isLoading: false,
             isAuthenticated: false,
           });
-          return;
-        }
-
-        if (event === 'SIGNED_IN' && session?.user) {
-          try {
-            console.log('User signed in, fetching profile');
-            const user = await authService.getCurrentUser();
-            console.log('User profile loaded:', user?.role);
-            setAuthState({
-              user,
-              isLoading: false,
-              isAuthenticated: !!user,
-            });
-          } catch (error) {
-            console.error('Error getting user profile:', error);
-            setAuthState({
-              user: null,
-              isLoading: false,
-              isAuthenticated: false,
-            });
-          }
         }
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -64,8 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuthState = async () => {
     try {
       console.log('Checking initial auth state...');
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (session?.user) {
         console.log('Found existing session, fetching user profile');
         const user = await authService.getCurrentUser();
@@ -95,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (credentials: LoginCredentials) => {
     try {
       console.log('Login attempt started');
-      setAuthState(prev => ({ ...prev, isLoading: true }));
+      setAuthState((prev) => ({ ...prev, isLoading: true }));
       const user = await authService.login(credentials);
       console.log('Login successful, user:', user.role);
       setAuthState({
@@ -117,17 +119,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       console.log('Logout initiated');
-      
+
       // Immediately clear the state to prevent UI issues
       setAuthState({
         user: null,
         isLoading: false,
         isAuthenticated: false,
       });
-      
+
       // Sign out from Supabase
       await authService.logout();
-      
+
       console.log('Logout completed successfully');
     } catch (error) {
       console.error('Error during logout:', error);

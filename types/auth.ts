@@ -1,14 +1,15 @@
-export interface User {
+// This type matches the 'profiles' table in the database
+export interface Profile {
   id: string;
-  email: string;
-  name: string;
+  email?: string; // Not in profiles table, but often joined
   role: 'student' | 'teacher' | 'admin';
-  rollNumber?: string;
-  class?: string;
-  phone?: string;
-  guardianPhone?: string;
-  guardianEmail?: string;
-  createdAt: string;
+  full_name: string | null;
+  created_at: string;
+  // Add more fields if you extend the profiles table
+}
+
+export interface User extends Profile {
+  // Optionally, you can add auth/session fields here if needed
 }
 
 export interface AuthState {

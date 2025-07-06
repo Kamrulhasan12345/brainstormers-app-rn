@@ -134,9 +134,23 @@ export default function AdminStudentsScreen() {
       resetForm();
       loadData();
       Alert.alert('Success', 'Student created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating student:', error);
-      Alert.alert('Error', 'Failed to create student. Please try again.');
+      // Show specific error if duplicate email or other known error
+      if (
+        error instanceof Error &&
+        error.message === 'A user with this email already exists.'
+      ) {
+        Alert.alert(
+          'Duplicate Email',
+          'A user with this email already exists. Please use a different email.'
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          error?.message || 'Failed to create student. Please try again.'
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -214,6 +228,14 @@ export default function AdminStudentsScreen() {
     setShowEnrollModal(true);
   };
 
+  // Helper to get available courses for enrollment (not already enrolled)
+  const getAvailableCoursesForStudent = (student: StudentWithProfile) => {
+    const enrolledCourseIds = new Set(
+      (student.enrollments || []).map((e) => e.course_id || e.course?.id)
+    );
+    return courses.filter((course) => !enrolledCourseIds.has(course.id));
+  };
+
   const handleEnrollStudent = async () => {
     if (!selectedCourseId || !selectedStudent) {
       Alert.alert('Error', 'Please select a course');
@@ -266,7 +288,7 @@ export default function AdminStudentsScreen() {
             style={styles.actionButton}
             onPress={() => openEnrollModal(student)}
           >
-            <UserPlus size={16} color="#10B981" />
+            <BookOpen size={16} color="#10B981" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
@@ -592,49 +614,57 @@ export default function AdminStudentsScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Select Course</Text>
 
-              {courses.map((course) => (
-                <TouchableOpacity
-                  key={course.id}
-                  style={[
-                    styles.courseOption,
-                    selectedCourseId === course.id &&
-                      styles.courseOptionSelected,
-                  ]}
-                  onPress={() => setSelectedCourseId(course.id)}
-                >
-                  <View style={styles.courseOptionContent}>
-                    <Text
-                      style={[
-                        styles.courseOptionName,
-                        selectedCourseId === course.id &&
-                          styles.courseOptionNameSelected,
-                      ]}
-                    >
-                      {course.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.courseOptionCode,
-                        selectedCourseId === course.id &&
-                          styles.courseOptionCodeSelected,
-                      ]}
-                    >
-                      {course.code}
-                    </Text>
-                  </View>
-                  <View
+              {selectedStudent &&
+              getAvailableCoursesForStudent(selectedStudent).length === 0 ? (
+                <Text style={{ color: '#9CA3AF', marginTop: 16 }}>
+                  This student is already enrolled in all available courses.
+                </Text>
+              ) : null}
+
+              {selectedStudent &&
+                getAvailableCoursesForStudent(selectedStudent).map((course) => (
+                  <TouchableOpacity
+                    key={course.id}
                     style={[
-                      styles.radioButton,
+                      styles.courseOption,
                       selectedCourseId === course.id &&
-                        styles.radioButtonSelected,
+                        styles.courseOptionSelected,
                     ]}
+                    onPress={() => setSelectedCourseId(course.id)}
                   >
-                    {selectedCourseId === course.id && (
-                      <View style={styles.radioButtonInner} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+                    <View style={styles.courseOptionContent}>
+                      <Text
+                        style={[
+                          styles.courseOptionName,
+                          selectedCourseId === course.id &&
+                            styles.courseOptionNameSelected,
+                        ]}
+                      >
+                        {course.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.courseOptionCode,
+                          selectedCourseId === course.id &&
+                            styles.courseOptionCodeSelected,
+                        ]}
+                      >
+                        {course.code}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.radioButton,
+                        selectedCourseId === course.id &&
+                          styles.radioButtonSelected,
+                      ]}
+                    >
+                      {selectedCourseId === course.id && (
+                        <View style={styles.radioButtonInner} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
             </View>
           </ScrollView>
         </SafeAreaView>

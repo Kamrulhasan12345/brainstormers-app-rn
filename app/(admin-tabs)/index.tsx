@@ -76,6 +76,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    console.log(user);
     if (!user || user.role !== 'admin') {
       console.log('Admin dashboard: User not admin, redirecting to login');
       router.replace('/login-selection');
@@ -176,7 +177,7 @@ export default function AdminDashboard() {
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.welcomeText}>Welcome back,</Text>
-              <Text style={styles.adminName}>{user.name}</Text>
+              <Text style={styles.adminName}>{user.full_name || "Mr. Admin"}</Text>
               <Text style={styles.roleText}>Administrator</Text>
             </View>
             <TouchableOpacity

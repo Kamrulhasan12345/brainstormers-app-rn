@@ -7,6 +7,9 @@ import {
   Alert,
   ActivityIndicator,
   StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -69,146 +72,159 @@ export default function StaffLoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#8B5CF6', '#7C3AED', '#6D28D9']}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          disabled={isLoading}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+          <LinearGradient
+            colors={['#8B5CF6', '#7C3AED', '#6D28D9']}
+            style={styles.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            {/* Back Button */}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              disabled={isLoading}
+            >
+              <ArrowLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Users size={48} color="#FFFFFF" />
-          </View>
-          <Text style={styles.title}>Staff Portal</Text>
-          <Text style={styles.subtitle}>Teachers & Administration Access</Text>
-        </View>
-
-        {/* Login Card */}
-        <View style={styles.loginCard}>
-          <Text style={styles.loginTitle}>Staff Login</Text>
-          <Text style={styles.loginSubtitle}>
-            Access your teaching dashboard and admin tools
-          </Text>
-
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <User size={20} color="#6B7280" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Staff Email Address"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholderTextColor="#9CA3AF"
-                editable={!isLoading}
-              />
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.logoContainer}>
+                <Users size={48} color="#FFFFFF" />
+              </View>
+              <Text style={styles.title}>Staff Portal</Text>
+              <Text style={styles.subtitle}>
+                Teachers & Administration Access
+              </Text>
             </View>
 
-            <View style={styles.inputWrapper}>
-              <Lock size={20} color="#6B7280" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                placeholderTextColor="#9CA3AF"
-                editable={!isLoading}
-              />
+            {/* Login Card */}
+            <View style={styles.loginCard}>
+              <Text style={styles.loginTitle}>Staff Login</Text>
+              <Text style={styles.loginSubtitle}>
+                Access your teaching dashboard and admin tools
+              </Text>
+
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <View style={styles.inputWrapper}>
+                  <User size={20} color="#6B7280" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Staff Email Address"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholderTextColor="#9CA3AF"
+                    editable={!isLoading}
+                  />
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <Lock size={20} color="#6B7280" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    placeholderTextColor="#9CA3AF"
+                    editable={!isLoading}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIcon}
+                    onPress={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? (
+                      <EyeOff size={20} color="#6B7280" />
+                    ) : (
+                      <Eye size={20} color="#6B7280" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Login Button */}
               <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
+                style={[
+                  styles.loginButton,
+                  isLoading && styles.loginButtonDisabled,
+                ]}
+                onPress={handleLogin}
                 disabled={isLoading}
               >
-                {showPassword ? (
-                  <EyeOff size={20} color="#6B7280" />
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Eye size={20} color="#6B7280" />
+                  <Text style={styles.loginButtonText}>Sign In</Text>
                 )}
               </TouchableOpacity>
-            </View>
-          </View>
 
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[
-              styles.loginButton,
-              isLoading && styles.loginButtonDisabled,
-            ]}
-            onPress={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.loginButtonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
+              {/* Demo Accounts */}
+              <View style={styles.demoSection}>
+                <Text style={styles.demoTitle}>Demo Accounts</Text>
+                <View style={styles.demoButtons}>
+                  <TouchableOpacity
+                    style={[styles.demoButton, styles.adminDemo]}
+                    onPress={() => fillDemoCredentials('admin')}
+                    disabled={isLoading}
+                  >
+                    <Shield size={16} color="#DC2626" style={styles.demoIcon} />
+                    <Text style={[styles.demoButtonText, styles.adminText]}>
+                      Admin Demo
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.demoButton, styles.teacherDemo]}
+                    onPress={() => fillDemoCredentials('teacher')}
+                    disabled={isLoading}
+                  >
+                    <Users size={16} color="#2563EB" style={styles.demoIcon} />
+                    <Text style={[styles.demoButtonText, styles.teacherText]}>
+                      Teacher Demo
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-          {/* Demo Accounts */}
-          <View style={styles.demoSection}>
-            <Text style={styles.demoTitle}>Demo Accounts</Text>
-            <View style={styles.demoButtons}>
-              <TouchableOpacity
-                style={[styles.demoButton, styles.adminDemo]}
-                onPress={() => fillDemoCredentials('admin')}
-                disabled={isLoading}
-              >
-                <Shield size={16} color="#DC2626" style={styles.demoIcon} />
-                <Text style={[styles.demoButtonText, styles.adminText]}>
-                  Admin Demo
+              {/* Security Notice */}
+              <View style={styles.securitySection}>
+                <Text style={styles.securityTitle}>🔒 Security Notice</Text>
+                <Text style={styles.securityText}>
+                  Staff accounts have elevated privileges. Keep your credentials
+                  secure and log out when finished.
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.demoButton, styles.teacherDemo]}
-                onPress={() => fillDemoCredentials('teacher')}
-                disabled={isLoading}
-              >
-                <Users size={16} color="#2563EB" style={styles.demoIcon} />
-                <Text style={[styles.demoButtonText, styles.teacherText]}>
-                  Teacher Demo
+              </View>
+
+              {/* Help Text */}
+              <View style={styles.helpSection}>
+                <Text style={styles.helpTitle}>Need Help?</Text>
+                <Text style={styles.helpText}>
+                  • Contact IT administration for account issues{'\n'}• Check
+                  your institutional email for updates{'\n'}• Visit the main
+                  office for password reset
                 </Text>
-              </TouchableOpacity>
+              </View>
+
+              {/* Footer */}
+              <Text style={styles.footerText}>
+                BrainStormers Staff Portal • Secure Access
+              </Text>
             </View>
-          </View>
-
-          {/* Security Notice */}
-          <View style={styles.securitySection}>
-            <Text style={styles.securityTitle}>🔒 Security Notice</Text>
-            <Text style={styles.securityText}>
-              Staff accounts have elevated privileges. Keep your credentials
-              secure and log out when finished.
-            </Text>
-          </View>
-
-          {/* Help Text */}
-          <View style={styles.helpSection}>
-            <Text style={styles.helpTitle}>Need Help?</Text>
-            <Text style={styles.helpText}>
-              • Contact IT administration for account issues{'\n'}• Check your
-              institutional email for updates{'\n'}• Visit the main office for
-              password reset
-            </Text>
-          </View>
-
-          {/* Footer */}
-          <Text style={styles.footerText}>
-            BrainStormers Staff Portal • Secure Access
-          </Text>
-        </View>
-      </LinearGradient>
+          </LinearGradient>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -217,10 +233,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   gradient: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 20,
+    paddingBottom: 40,
   },
   backButton: {
     width: 44,

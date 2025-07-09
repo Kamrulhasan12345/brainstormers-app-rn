@@ -84,7 +84,7 @@ class AuthService {
 
     return {
       id: data.id,
-      full_name: data.name,
+      full_name: data.full_name,
       role: data.role,
       created_at: data.created_at,
     };

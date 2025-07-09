@@ -177,7 +177,7 @@ export default function AdminDashboard() {
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.welcomeText}>Welcome back,</Text>
-              <Text style={styles.adminName}>{user.full_name || "Mr. Admin"}</Text>
+              <Text style={styles.adminName}>{user.full_name || 'Admin'}</Text>
               <Text style={styles.roleText}>Administrator</Text>
             </View>
             <TouchableOpacity

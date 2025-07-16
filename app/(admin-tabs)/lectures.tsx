@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   TextInput,
   Alert,
   Modal,
-  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,7 +19,6 @@ import {
   Trash2,
   Users,
   Clock,
-  MapPin,
   BookOpen,
   Search,
   Calendar,
@@ -54,9 +52,9 @@ export default function LecturesManagement() {
   const [lectures, setLectures] = useState<LectureWithDetails[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState('All');
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingLecture, setEditingLecture] =
     useState<LectureWithDetails | null>(null);
@@ -68,11 +66,12 @@ export default function LecturesManagement() {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
-  // Add a refresh function for batches
-  const [batchRefreshTrigger, setBatchRefreshTrigger] = useState(0);
 
+  // Simple refresh function that can be used by child components
   const refreshBatches = () => {
-    setBatchRefreshTrigger((prev) => prev + 1);
+    // This function is passed to AttendanceModal but doesn't need to do anything
+    // The actual batch refresh happens automatically when attendance is updated
+    console.log('Batch refresh requested');
   };
 
   // Form state
@@ -112,12 +111,6 @@ export default function LecturesManagement() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -458,13 +451,7 @@ export default function LecturesManagement() {
     const [batches, setBatches] = useState<LectureBatchWithDetails[]>([]);
     const [batchesLoading, setBatchesLoading] = useState(true);
 
-    useEffect(() => {
-      if (lecture) {
-        loadBatches();
-      }
-    }, [lecture, batchRefreshTrigger]);
-
-    const loadBatches = async () => {
+    const loadBatches = useCallback(async () => {
       try {
         setBatchesLoading(true);
         const batchesData = await lecturesManagementService.getLectureBatches(
@@ -477,7 +464,13 @@ export default function LecturesManagement() {
       } finally {
         setBatchesLoading(false);
       }
-    };
+    }, [lecture.id]);
+
+    useEffect(() => {
+      if (lecture) {
+        loadBatches();
+      }
+    }, [lecture, loadBatches]);
 
     const handleStatusUpdate = async (batchId: string, status: string) => {
       try {
@@ -649,13 +642,7 @@ export default function LecturesManagement() {
     const [attendances, setAttendances] = useState<AttendanceWithStudent[]>([]);
     const [attendanceLoading, setAttendanceLoading] = useState(true);
 
-    useEffect(() => {
-      if (batch) {
-        loadAttendance();
-      }
-    }, [batch]);
-
-    const loadAttendance = async () => {
+    const loadAttendance = useCallback(async () => {
       try {
         setAttendanceLoading(true);
         const attendanceData =
@@ -667,7 +654,13 @@ export default function LecturesManagement() {
       } finally {
         setAttendanceLoading(false);
       }
-    };
+    }, [batch.id]);
+
+    useEffect(() => {
+      if (batch) {
+        loadAttendance();
+      }
+    }, [batch, loadAttendance]);
 
     const markAttendance = async (studentId: string, status: string) => {
       try {
@@ -701,6 +694,49 @@ export default function LecturesManagement() {
       }
     };
 
+    const markAllAttendance = async (
+      status: 'present' | 'absent' | 'late' | 'excused'
+    ) => {
+      Alert.alert(
+        'Bulk Attendance',
+        `Are you sure you want to mark all students as ${status}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm',
+            onPress: async () => {
+              try {
+                await lecturesManagementService.markAllStudentsAttendance(
+                  batch.id,
+                  status,
+                  user?.id || 'current-user-id'
+                );
+
+                // Update local state for all students
+                setAttendances((prevAttendances) =>
+                  prevAttendances.map((attendance) => ({
+                    ...attendance,
+                    status: status as any,
+                    recorded_at: new Date().toISOString(),
+                  }))
+                );
+
+                // Call parent refresh to update batch statistics
+                if (onRefresh) {
+                  onRefresh();
+                }
+
+                Alert.alert('Success', `All students marked as ${status}`);
+              } catch (error) {
+                console.error('Error marking bulk attendance:', error);
+                Alert.alert('Error', 'Failed to mark bulk attendance');
+              }
+            },
+          },
+        ]
+      );
+    };
+
     const getStatusIcon = (status: string) => {
       switch (status) {
         case 'present':
@@ -724,8 +760,48 @@ export default function LecturesManagement() {
           {new Date(batch.scheduled_at).toLocaleDateString()}
         </Text>
 
+        {/* Bulk Attendance Actions */}
+        <View style={styles.bulkAttendanceSection}>
+          <Text style={styles.bulkAttendanceTitle}>
+            Bulk Actions ({attendances.length} students)
+          </Text>
+          <View style={styles.bulkAttendanceButtons}>
+            <TouchableOpacity
+              style={[styles.bulkButton, styles.bulkPresentButton]}
+              onPress={() => markAllAttendance('present')}
+            >
+              <CheckCircle size={16} color="#FFFFFF" />
+              <Text style={styles.bulkButtonText}>Mark All Present</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bulkButton, styles.bulkAbsentButton]}
+              onPress={() => markAllAttendance('absent')}
+            >
+              <XCircle size={16} color="#FFFFFF" />
+              <Text style={styles.bulkButtonText}>Mark All Absent</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bulkButton, styles.bulkLateButton]}
+              onPress={() => markAllAttendance('late')}
+            >
+              <AlertCircle size={16} color="#FFFFFF" />
+              <Text style={styles.bulkButtonText}>Mark All Late</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {attendanceLoading ? (
           <Text style={styles.loadingText}>Loading attendance...</Text>
+        ) : attendances.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              No students enrolled in this course yet.
+            </Text>
+            <Text style={styles.emptyStateSubtext}>
+              Students need to be enrolled in the course before attendance can
+              be taken.
+            </Text>
+          </View>
         ) : (
           <View style={styles.attendanceList}>
             {attendances.map((attendance) => (
@@ -788,13 +864,7 @@ export default function LecturesManagement() {
     const [reviewsLoading, setReviewsLoading] = useState(true);
     const [newReview, setNewReview] = useState('');
 
-    useEffect(() => {
-      if (batch) {
-        loadReviews();
-      }
-    }, [batch]);
-
-    const loadReviews = async () => {
+    const loadReviews = useCallback(async () => {
       try {
         setReviewsLoading(true);
         const reviewsData = await lecturesManagementService.getReviewsForBatch(
@@ -807,7 +877,13 @@ export default function LecturesManagement() {
       } finally {
         setReviewsLoading(false);
       }
-    };
+    }, [batch.id]);
+
+    useEffect(() => {
+      if (batch) {
+        loadReviews();
+      }
+    }, [batch, loadReviews]);
 
     const addReview = async () => {
       if (!newReview.trim()) return;
@@ -882,13 +958,7 @@ export default function LecturesManagement() {
     const [notesLoading, setNotesLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
 
-    useEffect(() => {
-      if (batch) {
-        loadNotes();
-      }
-    }, [batch]);
-
-    const loadNotes = async () => {
+    const loadNotes = useCallback(async () => {
       try {
         setNotesLoading(true);
         const notesData = await lecturesManagementService.getNotesForBatch(
@@ -901,7 +971,13 @@ export default function LecturesManagement() {
       } finally {
         setNotesLoading(false);
       }
-    };
+    }, [batch.id]);
+
+    useEffect(() => {
+      if (batch) {
+        loadNotes();
+      }
+    }, [batch, loadNotes]);
 
     const handleAddNote = () => {
       Alert.prompt('Add Note', 'Enter the note URL or file path:', [
@@ -2149,5 +2225,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#EF4444',
     fontFamily: 'Inter-Medium',
+  },
+  // Bulk Attendance Styles
+  bulkAttendanceSection: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+  },
+  bulkAttendanceTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontFamily: 'Inter-SemiBold',
+    marginBottom: 16,
+  },
+  bulkAttendanceButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  bulkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+    flex: 1,
+    minWidth: '30%',
+  },
+  bulkPresentButton: {
+    backgroundColor: '#059669',
+  },
+  bulkAbsentButton: {
+    backgroundColor: '#EF4444',
+  },
+  bulkLateButton: {
+    backgroundColor: '#EA580C',
+  },
+  bulkButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748B',
+    fontFamily: 'Inter-SemiBold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

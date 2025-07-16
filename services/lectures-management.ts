@@ -10,7 +10,6 @@ import {
   LectureNote,
   Profile,
   Teacher,
-  Student,
 } from '@/types/database-new';
 
 interface LectureFormData {
@@ -395,26 +394,57 @@ class LecturesManagementService {
     status: 'present' | 'absent' | 'late' | 'excused',
     recordedBy: string
   ): Promise<Attendance> {
-    const { data, error } = await supabase
+    // First, check if attendance record already exists
+    const { data: existing, error: checkError } = await supabase
       .from('attendances')
-      .upsert(
-        {
+      .select('id')
+      .eq('batch_id', batchId)
+      .eq('student_id', studentId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw new Error(
+        `Failed to check existing attendance: ${checkError.message}`
+      );
+    }
+
+    let result;
+    if (existing) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('attendances')
+        .update({
+          status,
+          recorded_by: recordedBy,
+          recorded_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error)
+        throw new Error(`Failed to update attendance: ${error.message}`);
+      result = data;
+    } else {
+      // Insert new record
+      const { data, error } = await supabase
+        .from('attendances')
+        .insert({
           batch_id: batchId,
           student_id: studentId,
           status,
           recorded_by: recordedBy,
           recorded_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'batch_id,student_id',
-          ignoreDuplicates: false,
-        }
-      )
-      .select()
-      .single();
+        })
+        .select()
+        .single();
 
-    if (error) throw new Error(`Failed to mark attendance: ${error.message}`);
-    return data;
+      if (error)
+        throw new Error(`Failed to insert attendance: ${error.message}`);
+      result = data;
+    }
+
+    return result;
   }
 
   async bulkMarkAttendance(
@@ -422,25 +452,87 @@ class LecturesManagementService {
     attendanceRecords: AttendanceRecord[],
     recordedBy: string
   ): Promise<Attendance[]> {
-    const records = attendanceRecords.map((record) => ({
-      batch_id: batchId,
-      student_id: record.studentId,
-      status: record.status,
-      recorded_by: recordedBy,
-      recorded_at: new Date().toISOString(),
-    }));
+    const results: Attendance[] = [];
 
-    const { data, error } = await supabase
-      .from('attendances')
-      .upsert(records)
-      .select();
+    // Process each attendance record individually to avoid upsert conflicts
+    for (const record of attendanceRecords) {
+      try {
+        const result = await this.markAttendance(
+          batchId,
+          record.studentId,
+          record.status,
+          recordedBy
+        );
+        results.push(result);
+      } catch (error) {
+        console.error(
+          `Failed to mark attendance for student ${record.studentId}:`,
+          error
+        );
+        // Continue processing other records even if one fails
+      }
+    }
 
-    if (error)
-      throw new Error(`Failed to bulk mark attendance: ${error.message}`);
-    return data || [];
+    return results;
+  }
+
+  // New method to mark all students as present/absent at once
+  async markAllStudentsAttendance(
+    batchId: string,
+    status: 'present' | 'absent' | 'late' | 'excused',
+    recordedBy: string
+  ): Promise<Attendance[]> {
+    // Get all students enrolled in the batch
+    const currentAttendances = await this.getAttendanceForBatch(batchId);
+
+    // Mark all students with the specified status
+    const attendanceRecords: AttendanceRecord[] = currentAttendances.map(
+      (attendance) => ({
+        studentId: attendance.student_id,
+        status: status,
+      })
+    );
+
+    return this.bulkMarkAttendance(batchId, attendanceRecords, recordedBy);
   }
 
   async getAttendanceForBatch(batchId: string): Promise<Attendance[]> {
+    // First, get the batch to find the course
+    const { data: batch, error: batchError } = await supabase
+      .from('lecture_batches')
+      .select(
+        `
+        id,
+        lecture:lectures(
+          id,
+          course_id
+        )
+      `
+      )
+      .eq('id', batchId)
+      .single();
+
+    if (batchError) {
+      console.error('Failed to fetch batch info:', batchError);
+      throw new Error(`Failed to fetch batch info: ${batchError.message}`);
+    }
+
+    if (!batch || !batch.lecture) {
+      throw new Error('Batch or lecture not found');
+    }
+
+    const courseId = (batch.lecture as any).course_id;
+    console.log('Course ID found:', courseId);
+
+    // Auto-enroll students for attendance if not already done
+    try {
+      const enrolledStudents = await this.autoEnrollStudentsForBatch(batchId, courseId);
+      console.log('Auto-enrolled students:', enrolledStudents.length);
+    } catch (enrollError) {
+      console.warn('Failed to auto-enroll students:', enrollError);
+    }
+
+    // Now fetch attendance records
     const { data, error } = await supabase
       .from('attendances')
       .select(
@@ -458,7 +550,12 @@ class LecturesManagementService {
       .eq('batch_id', batchId)
       .order('recorded_at', { ascending: false });
 
-    if (error) throw new Error(`Failed to fetch attendance: ${error.message}`);
+    if (error) {
+      console.error('Failed to fetch attendance:', error);
+      throw new Error(`Failed to fetch attendance: ${error.message}`);
+    }
+
+    console.log('Raw attendance data:', data?.length || 0);
 
     // Remove duplicates based on student_id (keep the most recent one)
     const uniqueAttendances = (data || []).reduce(
@@ -482,6 +579,7 @@ class LecturesManagementService {
       [] as Attendance[]
     );
 
+    console.log('Unique attendances:', uniqueAttendances.length);
     return uniqueAttendances;
   }
 
@@ -718,23 +816,8 @@ class LecturesManagementService {
     batchId: string,
     courseId: string
   ): Promise<Attendance[]> {
-    // First check if attendance records already exist for this batch
-    const { data: existingAttendances, error: existingError } = await supabase
-      .from('attendances')
-      .select('student_id')
-      .eq('batch_id', batchId);
-
-    if (existingError) {
-      throw new Error(
-        `Failed to check existing attendance: ${existingError.message}`
-      );
-    }
-
-    // If attendance records already exist, don't create new ones
-    if (existingAttendances && existingAttendances.length > 0) {
-      return existingAttendances as Attendance[];
-    }
-
+    console.log('Auto-enrolling students for batch:', batchId, 'course:', courseId);
+    
     // Get all enrolled students for the course
     const { data: enrollments, error: enrollError } = await supabase
       .from('course_enrollments')
@@ -742,31 +825,74 @@ class LecturesManagementService {
       .eq('course_id', courseId)
       .eq('status', 'active');
 
-    if (enrollError)
+    if (enrollError) {
+      console.error('Failed to fetch enrolled students:', enrollError);
       throw new Error(
         `Failed to fetch enrolled students: ${enrollError.message}`
       );
+    }
+
+    console.log('Found enrolled students:', enrollments?.length || 0);
 
     if (!enrollments || enrollments.length === 0) {
+      console.log('No enrolled students found for course');
       return [];
     }
 
-    // Create attendance records for all enrolled students
-    const attendanceRecords = enrollments.map((enrollment) => ({
-      batch_id: batchId,
-      student_id: enrollment.student_id,
-      status: 'absent' as const, // Default to absent
-      recorded_at: new Date().toISOString(),
-    }));
-
-    const { data, error } = await supabase
+    // Get existing attendance records for this batch
+    const { data: existingAttendances, error: existingError } = await supabase
       .from('attendances')
-      .insert(attendanceRecords)
-      .select();
+      .select('*')
+      .eq('batch_id', batchId);
 
-    if (error)
-      throw new Error(`Failed to create attendance records: ${error.message}`);
-    return data || [];
+    if (existingError) {
+      console.error('Failed to check existing attendance:', existingError);
+      throw new Error(
+        `Failed to check existing attendance: ${existingError.message}`
+      );
+    }
+
+    console.log('Existing attendance records:', existingAttendances?.length || 0);
+
+    const existingStudentIds = new Set(
+      existingAttendances?.map(att => att.student_id) || []
+    );
+
+    // Find students who don't have attendance records yet
+    const missingStudents = enrollments.filter(
+      enrollment => !existingStudentIds.has(enrollment.student_id)
+    );
+
+    console.log('Missing students needing attendance records:', missingStudents.length);
+
+    // Create attendance records for missing students
+    if (missingStudents.length > 0) {
+      const newAttendanceRecords = missingStudents.map((enrollment) => ({
+        batch_id: batchId,
+        student_id: enrollment.student_id,
+        status: 'absent' as const, // Default to absent
+        recorded_at: new Date().toISOString(),
+      }));
+
+      console.log('Creating attendance records for:', newAttendanceRecords.length, 'students');
+
+      const { data: newAttendances, error: insertError } = await supabase
+        .from('attendances')
+        .insert(newAttendanceRecords)
+        .select();
+
+      if (insertError) {
+        console.error('Failed to create attendance records:', insertError);
+        throw new Error(`Failed to create attendance records: ${insertError.message}`);
+      }
+
+      console.log('Successfully created attendance records:', newAttendances?.length || 0);
+
+      // Combine existing and new attendance records
+      return [...(existingAttendances || []), ...(newAttendances || [])];
+    }
+
+    return existingAttendances || [];
   }
 }
 

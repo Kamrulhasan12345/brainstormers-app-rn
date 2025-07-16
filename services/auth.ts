@@ -6,6 +6,7 @@ class AuthService {
     console.log('AuthService: Attempting login for', credentials.email);
 
     if (isDemoMode()) {
+      console.log('AuthService: Running in demo mode');
       return this.handleDemoLogin(credentials);
     }
 
@@ -16,6 +17,11 @@ class AuthService {
 
     if (error) {
       console.error('AuthService: Login error', error);
+      if (error.message.includes('Invalid API key')) {
+        throw new Error(
+          'Supabase configuration error. Please check your EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.'
+        );
+      }
       throw new Error(error.message);
     }
 

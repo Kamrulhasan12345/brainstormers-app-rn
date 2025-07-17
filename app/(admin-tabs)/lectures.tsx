@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
@@ -36,7 +35,6 @@ import {
   LectureWithDetails,
   LectureBatchWithDetails,
   Course,
-  Attendance,
 } from '@/types/database-new';
 
 // Form data for the batch creation modal
@@ -53,16 +51,21 @@ interface CreateBatchModalProps {
   onSubmit: () => void;
   batchFormData: BatchFormData;
   setBatchFormData: React.Dispatch<React.SetStateAction<BatchFormData>>;
+  editingBatch?: LectureBatchWithDetails | null;
 }
 
 // Extended attendance type with student information
-interface AttendanceWithStudent extends Attendance {
+interface AttendanceWithStudent {
+  id: string;
+  batch_id: string;
+  student_id: string;
+  recorded_by: string | null;
+  status: 'present' | 'absent' | 'late' | 'excused';
+  recorded_at: string;
   student?: {
     id: string;
     full_name: string;
-    students?: {
-      roll: string;
-    };
+    roll?: string;
   };
 }
 
@@ -88,6 +91,7 @@ export default function LecturesManagement() {
   const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showCreateBatchModal, setShowCreateBatchModal] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<LectureBatchWithDetails | null>(null);
   const [batchFormData, setBatchFormData] = useState<BatchFormData>({
     scheduledDate: new Date(),
     scheduledTime: new Date(),
@@ -527,6 +531,7 @@ export default function LecturesManagement() {
         scheduledTime: new Date(),
         notes: '',
       });
+      setEditingBatch(null);
       setShowCreateBatchModal(true);
     };
 
@@ -536,18 +541,65 @@ export default function LecturesManagement() {
         combinedDateTime.setHours(batchFormData.scheduledTime.getHours());
         combinedDateTime.setMinutes(batchFormData.scheduledTime.getMinutes());
 
-        await lecturesManagementService.createLectureBatch(
-          lecture.id,
-          combinedDateTime.toISOString()
-        );
+        if (editingBatch) {
+          // Edit existing batch
+          await lecturesManagementService.updateLectureBatch(
+            editingBatch.id,
+            combinedDateTime.toISOString(),
+            batchFormData.notes
+          );
+          Alert.alert('Success', 'Batch updated successfully');
+        } else {
+          // Create new batch
+          await lecturesManagementService.createLectureBatch(
+            lecture.id,
+            combinedDateTime.toISOString()
+          );
+          Alert.alert('Success', 'New batch created successfully');
+        }
 
         setShowCreateBatchModal(false);
+        setEditingBatch(null);
         await loadBatches();
-        Alert.alert('Success', 'New batch created successfully');
       } catch (error) {
         console.error('Error creating batch:', error);
         Alert.alert('Error', 'Failed to create batch');
       }
+    };
+
+    const handleEditBatch = (batch: LectureBatchWithDetails) => {
+      const batchDate = new Date(batch.scheduled_at);
+      setBatchFormData({
+        scheduledDate: batchDate,
+        scheduledTime: batchDate,
+        notes: batch.notes || '',
+      });
+      setEditingBatch(batch);
+      setShowCreateBatchModal(true);
+    };
+
+    const handleDeleteBatch = (batchId: string) => {
+      Alert.alert(
+        'Delete Batch',
+        'Are you sure you want to delete this batch? This will also delete all associated attendance records.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await lecturesManagementService.deleteLectureBatch(batchId);
+                await loadBatches();
+                Alert.alert('Success', 'Batch deleted successfully');
+              } catch (error) {
+                console.error('Error deleting batch:', error);
+                Alert.alert('Error', 'Failed to delete batch');
+              }
+            },
+          },
+        ]
+      );
     };
 
     return (
@@ -558,6 +610,7 @@ export default function LecturesManagement() {
           onSubmit={handleCreateBatch}
           batchFormData={batchFormData}
           setBatchFormData={setBatchFormData}
+          editingBatch={editingBatch}
         />
         <ScrollView style={styles.batchesContainer}>
           <View style={styles.batchesHeader}>
@@ -584,20 +637,36 @@ export default function LecturesManagement() {
                   <Text style={styles.batchDate}>
                     {new Date(batch.scheduled_at).toLocaleDateString()}
                   </Text>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusBgColor(batch.status) },
-                    ]}
-                  >
-                    <Text
+                  <View style={styles.batchHeaderActions}>
+                    <View
                       style={[
-                        styles.statusText,
-                        { color: getStatusColor(batch.status) },
+                        styles.statusBadge,
+                        { backgroundColor: getStatusBgColor(batch.status) },
                       ]}
                     >
-                      {batch.status.toUpperCase()}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: getStatusColor(batch.status) },
+                        ]}
+                      >
+                        {batch.status.toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.batchActions}>
+                      <TouchableOpacity
+                        style={styles.batchEditButton}
+                        onPress={() => handleEditBatch(batch)}
+                      >
+                        <Edit size={12} color="#2563EB" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.batchDeleteButton}
+                        onPress={() => handleDeleteBatch(batch.id)}
+                      >
+                        <Trash2 size={12} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
 
@@ -864,7 +933,7 @@ export default function LecturesManagement() {
                     {attendance.student?.full_name || 'Unknown Student'}
                   </Text>
                   <Text style={styles.studentRoll}>
-                    Roll: {attendance.student?.students?.roll || 'N/A'}
+                    Roll: {attendance.student?.roll || 'N/A'}
                   </Text>
                 </View>
                 <View style={styles.attendanceStatus}>
@@ -1412,6 +1481,7 @@ const CreateBatchModal = ({
   onSubmit,
   batchFormData,
   setBatchFormData,
+  editingBatch,
 }: CreateBatchModalProps) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -1428,7 +1498,9 @@ const CreateBatchModal = ({
           <TouchableOpacity onPress={onClose}>
             <ArrowLeft size={24} color="#1E293B" />
           </TouchableOpacity>
-          <Text style={styles.modalTitle}>Create New Batch</Text>
+          <Text style={styles.modalTitle}>
+            {editingBatch ? 'Edit Batch' : 'Create New Batch'}
+          </Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -1514,7 +1586,9 @@ const CreateBatchModal = ({
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.saveButton} onPress={onSubmit}>
-              <Text style={styles.saveButtonText}>Create Batch</Text>
+              <Text style={styles.saveButtonText}>
+                {editingBatch ? 'Update Batch' : 'Create Batch'}
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -2028,17 +2102,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   attendanceInfo: {
     flex: 1,
+    marginBottom: 8,
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1E293B',
+    marginBottom: 2,
   },
   studentRoll: {
     fontSize: 12,
@@ -2047,7 +2126,7 @@ const styles = StyleSheet.create({
   attendanceStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 100,
+    marginBottom: 8,
   },
   statusLabel: {
     marginLeft: 6,
@@ -2057,6 +2136,7 @@ const styles = StyleSheet.create({
   attendanceButtons: {
     flexDirection: 'row',
     gap: 4,
+    flexWrap: 'wrap',
   },
   statusButton: {
     paddingVertical: 6,
@@ -2353,5 +2433,38 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  batchHeaderActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  batchEditButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  batchEditButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  batchDeleteButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  batchDeleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });

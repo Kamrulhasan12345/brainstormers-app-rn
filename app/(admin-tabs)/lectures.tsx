@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  Linking,
   Modal,
   Platform,
   RefreshControl,
@@ -91,7 +92,8 @@ export default function LecturesManagement() {
   const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showCreateBatchModal, setShowCreateBatchModal] = useState(false);
-  const [editingBatch, setEditingBatch] = useState<LectureBatchWithDetails | null>(null);
+  const [editingBatch, setEditingBatch] =
+    useState<LectureBatchWithDetails | null>(null);
   const [batchFormData, setBatchFormData] = useState<BatchFormData>({
     scheduledDate: new Date(),
     scheduledTime: new Date(),
@@ -1087,6 +1089,10 @@ export default function LecturesManagement() {
     const [notes, setNotes] = useState<any[]>([]);
     const [notesLoading, setNotesLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+    const [showEditNoteModal, setShowEditNoteModal] = useState(false);
+    const [noteInput, setNoteInput] = useState('');
+    const [editingNote, setEditingNote] = useState<any>(null);
 
     const loadNotes = useCallback(async () => {
       try {
@@ -1110,102 +1116,292 @@ export default function LecturesManagement() {
     }, [batch, loadNotes]);
 
     const handleAddNote = () => {
-      Alert.prompt('Add Note', 'Enter the note URL or file path:', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: async (fileUrl) => {
-            if (!fileUrl) return;
-            try {
-              setUploading(true);
-              await lecturesManagementService.uploadLectureNotes(
-                batch.id,
-                fileUrl,
-                user?.id || 'current-user-id'
-              );
-              await loadNotes();
-              Alert.alert('Success', 'Note added successfully');
-            } catch (error) {
-              console.error('Error adding note:', error);
-              Alert.alert('Error', 'Failed to add note');
-            } finally {
-              setUploading(false);
-            }
-          },
-        },
-      ]);
+      setNoteInput('');
+      setShowAddNoteModal(true);
+    };
+
+    const handleEditNote = (note: any) => {
+      setEditingNote(note);
+      setNoteInput(note.file_url);
+      setShowEditNoteModal(true);
+    };
+
+    const submitAddNote = async () => {
+      if (!noteInput.trim()) {
+        Alert.alert('Error', 'Please enter a valid URL');
+        return;
+      }
+      try {
+        setUploading(true);
+        await lecturesManagementService.uploadLectureNotes(
+          batch.id,
+          noteInput.trim(),
+          user?.id || 'current-user-id'
+        );
+        await loadNotes();
+        setShowAddNoteModal(false);
+        setNoteInput('');
+        Alert.alert('Success', 'Note added successfully');
+      } catch (error) {
+        console.error('Error adding note:', error);
+        Alert.alert('Error', 'Failed to add note');
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    const submitEditNote = async () => {
+      if (!noteInput.trim()) {
+        Alert.alert('Error', 'Please enter a valid URL');
+        return;
+      }
+      try {
+        setUploading(true);
+        // Delete the old note and create a new one (since we don't have an update endpoint)
+        await lecturesManagementService.deleteNote(editingNote.id);
+        await lecturesManagementService.uploadLectureNotes(
+          batch.id,
+          noteInput.trim(),
+          user?.id || 'current-user-id'
+        );
+        await loadNotes();
+        setShowEditNoteModal(false);
+        setEditingNote(null);
+        setNoteInput('');
+        Alert.alert('Success', 'Note updated successfully');
+      } catch (error) {
+        console.error('Error updating note:', error);
+        Alert.alert('Error', 'Failed to update note');
+      } finally {
+        setUploading(false);
+      }
     };
 
     const handleDeleteNote = (noteId: string) => {
-      Alert.alert('Delete Note', 'Are you sure you want to delete this note?', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await lecturesManagementService.deleteNote(noteId);
-              await loadNotes();
-              Alert.alert('Success', 'Note deleted successfully');
-            } catch (error) {
-              console.error('Error deleting note:', error);
-              Alert.alert('Error', 'Failed to delete note');
-            }
+      Alert.alert(
+        'Delete Note',
+        'Are you sure you want to delete this scanned notebook note?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await lecturesManagementService.deleteNote(noteId);
+                await loadNotes();
+                Alert.alert('Success', 'Note deleted successfully');
+              } catch (error) {
+                console.error('Error deleting note:', error);
+                Alert.alert('Error', 'Failed to delete note');
+              }
+            },
           },
-        },
-      ]);
+        ]
+      );
+    };
+
+    const handleOpenNote = async (url: string) => {
+      try {
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+        } else {
+          Alert.alert('Error', 'Cannot open this URL on your device');
+        }
+      } catch (error) {
+        console.error('Error opening URL:', error);
+        Alert.alert('Error', 'Failed to open the URL');
+      }
     };
 
     return (
-      <ScrollView style={styles.notesContainer}>
-        <View style={styles.notesHeader}>
-          <Text style={styles.notesTitle}>Lecture Notes</Text>
-          <TouchableOpacity
-            style={styles.addNoteButton}
-            onPress={handleAddNote}
-            disabled={uploading}
-          >
-            <Plus size={16} color="#FFFFFF" />
-            <Text style={styles.addNoteButtonText}>Add Note</Text>
-          </TouchableOpacity>
-        </View>
+      <>
+        <ScrollView style={styles.notesContainer}>
+          <View style={styles.notesHeader}>
+            <Text style={styles.notesTitle}>Lecture Notes</Text>
+            <TouchableOpacity
+              style={styles.addNoteButton}
+              onPress={handleAddNote}
+              disabled={uploading}
+            >
+              <Plus size={16} color="#FFFFFF" />
+              <Text style={styles.addNoteButtonText}>Add Note</Text>
+            </TouchableOpacity>
+          </View>
 
-        <Text style={styles.notesSubtitle}>
-          {batch.lecture?.topic} -{' '}
-          {new Date(batch.scheduled_at).toLocaleDateString()}
-        </Text>
-
-        {notesLoading ? (
-          <Text style={styles.loadingText}>Loading notes...</Text>
-        ) : notes.length === 0 ? (
-          <Text style={styles.emptyText}>
-            No notes available for this lecture
+          <Text style={styles.notesSubtitle}>
+            {batch.lecture?.topic} -{' '}
+            {new Date(batch.scheduled_at).toLocaleDateString()}
           </Text>
-        ) : (
-          <View style={styles.notesList}>
-            {notes.map((note) => (
-              <View key={note.id} style={styles.noteCard}>
-                <View style={styles.noteHeader}>
-                  <Text style={styles.noteUploader}>
-                    {note.uploader?.full_name || 'Unknown User'}
-                  </Text>
-                  <Text style={styles.noteDate}>
-                    {new Date(note.uploaded_at).toLocaleDateString()}
-                  </Text>
+
+          <Text style={styles.notesDescription}>
+            Upload scanned copies of student notebooks or related lecture
+            materials. Provide links to files stored in Google Drive, Dropbox,
+            or other cloud storage.
+          </Text>
+
+          {notesLoading ? (
+            <Text style={styles.loadingText}>Loading notes...</Text>
+          ) : notes.length === 0 ? (
+            <Text style={styles.emptyText}>
+              No notes available for this lecture
+            </Text>
+          ) : (
+            <View style={styles.notesList}>
+              {notes.map((note) => (
+                <View key={note.id} style={styles.noteCard}>
+                  <View style={styles.noteHeader}>
+                    <Text style={styles.noteUploader}>
+                      {note.uploader?.full_name || 'Unknown User'}
+                    </Text>
+                    <Text style={styles.noteDate}>
+                      {new Date(note.uploaded_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.noteUrlContainer}
+                    onPress={() => handleOpenNote(note.file_url)}
+                  >
+                    <Text style={styles.noteUrl} numberOfLines={2}>
+                      {note.file_url}
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={styles.noteActions}>
+                    <TouchableOpacity
+                      style={styles.editNoteButton}
+                      onPress={() => handleEditNote(note)}
+                    >
+                      <Edit size={14} color="#2563EB" />
+                      <Text style={styles.editNoteButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteNoteButton}
+                      onPress={() => handleDeleteNote(note.id)}
+                    >
+                      <Trash2 size={14} color="#EF4444" />
+                      <Text style={styles.deleteNoteButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <Text style={styles.noteUrl}>{note.file_url}</Text>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Add Note Modal */}
+        <Modal
+          visible={showAddNoteModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowAddNoteModal(false)}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowAddNoteModal(false)}>
+                <ArrowLeft size={24} color="#1E293B" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Add Lecture Note</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            <ScrollView style={styles.formContainer}>
+              <Text style={styles.formTitle}>Add Lecture Note</Text>
+              <Text style={styles.formDescription}>
+                Enter the URL for scanned notebook files or related lecture
+                materials. This can be a Google Drive link, Dropbox link, or any
+                other cloud storage URL.
+              </Text>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>File URL *</Text>
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  value={noteInput}
+                  onChangeText={setNoteInput}
+                  placeholder="Enter file URL (e.g., https://drive.google.com/file/d/...)"
+                  multiline
+                  numberOfLines={3}
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              <View style={styles.formButtons}>
                 <TouchableOpacity
-                  style={styles.deleteNoteButton}
-                  onPress={() => handleDeleteNote(note.id)}
+                  style={styles.cancelButton}
+                  onPress={() => setShowAddNoteModal(false)}
                 >
-                  <Trash2 size={14} color="#EF4444" />
-                  <Text style={styles.deleteNoteButtonText}>Delete</Text>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={submitAddNote}
+                  disabled={uploading}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {uploading ? 'Adding...' : 'Add Note'}
+                  </Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        {/* Edit Note Modal */}
+        <Modal
+          visible={showEditNoteModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowEditNoteModal(false)}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowEditNoteModal(false)}>
+                <ArrowLeft size={24} color="#1E293B" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Edit Lecture Note</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            <ScrollView style={styles.formContainer}>
+              <Text style={styles.formTitle}>Edit Lecture Note</Text>
+              <Text style={styles.formDescription}>
+                Update the URL for this scanned notebook file or lecture
+                material.
+              </Text>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>File URL *</Text>
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  value={noteInput}
+                  onChangeText={setNoteInput}
+                  placeholder="Enter file URL (e.g., https://drive.google.com/file/d/...)"
+                  multiline
+                  numberOfLines={3}
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              <View style={styles.formButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setShowEditNoteModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={submitEditNote}
+                  disabled={uploading}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {uploading ? 'Updating...' : 'Update Note'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+      </>
     );
   };
 
@@ -2263,7 +2459,14 @@ const styles = StyleSheet.create({
   notesSubtitle: {
     fontSize: 14,
     color: '#64748B',
+    marginBottom: 12,
+  },
+  notesDescription: {
+    fontSize: 13,
+    color: '#64748B',
     marginBottom: 20,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
   notesList: {
     gap: 12,
@@ -2272,6 +2475,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   noteHeader: {
     flexDirection: 'row',
@@ -2287,20 +2492,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
   },
+  noteUrlContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
   noteUrl: {
     fontSize: 14,
     color: '#0EA5E9',
-    marginBottom: 12,
+    textDecorationLine: 'underline',
+  },
+  noteActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  editNoteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 4,
+  },
+  editNoteButtonText: {
+    color: '#2563EB',
+    marginLeft: 4,
+    fontWeight: '500',
+    fontSize: 12,
   },
   deleteNoteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 4,
   },
   deleteNoteButtonText: {
     color: '#EF4444',
     marginLeft: 4,
     fontWeight: '500',
+    fontSize: 12,
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -2440,12 +2676,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   batchEditButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    flexDirection: 'row',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   batchEditButtonText: {
     color: '#FFFFFF',
@@ -2454,17 +2690,23 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   batchDeleteButton: {
-    backgroundColor: '#DC2626',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    flexDirection: 'row',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   batchDeleteButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  formDescription: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 16,
+    lineHeight: 20,
   },
 });

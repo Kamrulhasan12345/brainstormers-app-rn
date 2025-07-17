@@ -4,11 +4,12 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { examManagementService } from '../../services/exam-management';
 import {
@@ -18,6 +19,7 @@ import {
   Users,
   Filter,
   ChevronRight,
+  Search,
 } from 'lucide-react-native';
 
 export default function ExamsScreen() {
@@ -25,6 +27,7 @@ export default function ExamsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<
     'all' | 'today' | 'tomorrow' | 'this_week'
   >('all');
@@ -204,6 +207,18 @@ export default function ExamsScreen() {
   const getFilteredExams = () => {
     let filtered = exams;
 
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (exam) =>
+          exam.name?.toLowerCase().includes(query) ||
+          exam.subject?.toLowerCase().includes(query) ||
+          exam.topic?.toLowerCase().includes(query) ||
+          exam.course?.name?.toLowerCase().includes(query)
+      );
+    }
+
     // Apply time filter
     if (timeFilter !== 'all') {
       filtered = filtered.filter((exam) => {
@@ -231,6 +246,23 @@ export default function ExamsScreen() {
 
   const handleExamPress = (exam: any) => {
     router.push(`/exams/${exam.id}`);
+  };
+
+  const renderSearchBar = () => {
+    return (
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <Search size={20} color="#64748B" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search exams by name, subject, or topic..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+      </View>
+    );
   };
 
   const renderTimeFilter = () => {
@@ -403,6 +435,7 @@ export default function ExamsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {renderSearchBar()}
         {renderTimeFilter()}
         {renderSubjectFilter()}
 
@@ -447,6 +480,30 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1E293B',
+    marginLeft: 8,
+    paddingVertical: 4,
   },
   filterSection: {
     paddingHorizontal: 20,

@@ -1,84 +1,35 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Clock, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Calendar, Bell, Award, Target } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { examsService } from '@/services/exams';
-import { isDemoMode } from '@/lib/supabase';
-
-// Mock data for demo mode
-const mockExamData = [
-  {
-    id: 1,
-    subject: 'Physics',
-    topic: 'Electromagnetic Waves',
-    date: '2025-01-22',
-    time: '10:00 AM - 12:00 PM',
-    duration: '2 hours',
-    totalMarks: 100,
-    status: 'upcoming',
-    type: 'Unit Test',
-    location: 'Hall A',
-    reminders: true,
-    syllabus: ['Wave equation', 'EM spectrum', 'Properties of EM waves'],
-    hasResult: false,
-  },
-  {
-    id: 2,
-    subject: 'Chemistry',
-    topic: 'Organic Chemistry - Aldehydes & Ketones',
-    date: '2025-01-24',
-    time: '2:00 PM - 4:00 PM',
-    duration: '2 hours',
-    totalMarks: 80,
-    status: 'upcoming',
-    type: 'Chapter Test',
-    location: 'Hall B',
-    reminders: true,
-    syllabus: ['Preparation methods', 'Chemical reactions', 'Identification tests'],
-    hasResult: false,
-  },
-  {
-    id: 3,
-    subject: 'Mathematics',
-    topic: 'Calculus - Integration',
-    date: '2025-01-20',
-    time: '9:00 AM - 11:00 AM',
-    duration: '2 hours',
-    totalMarks: 100,
-    status: 'missed',
-    type: 'Monthly Test',
-    location: 'Hall C',
-    reminders: false,
-    syllabus: ['Indefinite integration', 'Definite integration', 'Applications'],
-    hasResult: false,
-  },
-  {
-    id: 4,
-    subject: 'Biology',
-    topic: 'Reproductive Health',
-    date: '2025-01-18',
-    time: '11:00 AM - 1:00 PM',
-    duration: '2 hours',
-    totalMarks: 90,
-    status: 'completed',
-    type: 'Unit Test',
-    location: 'Hall A',
-    reminders: false,
-    marksObtained: 78,
-    grade: 'A',
-    syllabus: ['Reproductive health issues', 'Population control', 'Medical termination'],
-    hasResult: true,
-  },
-];
-
-const examTypes = ['All', 'Unit Test', 'Chapter Test', 'Monthly Test', 'Prelims', 'Board Exam'];
+import { examManagementService } from '../../services/exam-management';
+import {
+  Calendar,
+  Clock,
+  Target,
+  Users,
+  Filter,
+  ChevronRight,
+} from 'lucide-react-native';
 
 export default function ExamsScreen() {
-  const [selectedType, setSelectedType] = useState('All');
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState<
+    'all' | 'today' | 'tomorrow' | 'this_week'
+  >('all');
+  const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [subjects, setSubjects] = useState<string[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -90,47 +41,123 @@ export default function ExamsScreen() {
       setLoading(true);
       setError(null);
 
-      if (isDemoMode()) {
-        // Use mock data in demo mode
-        setExams(mockExamData);
-      } else {
-        // Load from database
-        const data = await examsService.getExams();
-        const formattedExams = data.map((exam: any) => ({
-          id: exam.id,
-          subject: exam.subjects?.name || 'Unknown Subject',
-          topic: exam.title,
-          date: exam.exam_date,
-          time: `${exam.start_time} - ${exam.end_time}`,
-          duration: `${Math.floor(exam.duration_minutes / 60)} hours`,
-          totalMarks: exam.total_marks,
-          status: exam.status,
-          type: exam.exam_type,
-          location: exam.location || 'TBD',
-          reminders: true,
-          syllabus: exam.exam_syllabus?.map((s: any) => s.topic) || [],
-          hasResult: exam.exam_results && exam.exam_results.length > 0,
-          marksObtained: exam.exam_results?.[0]?.marks_obtained,
-          grade: exam.exam_results?.[0]?.grade,
-        }));
-        setExams(formattedExams);
-      }
+      // Load from database
+      const data = await examManagementService.getExams();
+
+      // Get batches for each exam and format the data
+      const formattedExams = await Promise.all(
+        data.map(async (exam: any) => {
+          try {
+            const batches = await examManagementService.getExamBatches(exam.id);
+            const firstBatch = batches[0];
+
+            // Calculate duration from first batch times
+            let duration = 'N/A';
+            if (firstBatch?.scheduled_start && firstBatch?.scheduled_end) {
+              const startTime = new Date(firstBatch.scheduled_start);
+              const endTime = new Date(firstBatch.scheduled_end);
+              const durationMinutes =
+                (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+              const hours = Math.floor(durationMinutes / 60);
+              const minutes = durationMinutes % 60;
+              duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+            }
+
+            // Format date and time from first batch
+            let examDate = 'TBD';
+            let examTime = 'TBD';
+            if (firstBatch?.scheduled_start) {
+              const startDateTime = new Date(firstBatch.scheduled_start);
+              examDate = startDateTime.toISOString().split('T')[0];
+              examTime = startDateTime.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              });
+
+              if (firstBatch.scheduled_end) {
+                const endDateTime = new Date(firstBatch.scheduled_end);
+                examTime += ` - ${endDateTime.toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                })}`;
+              }
+            }
+
+            // Determine exam status
+            let status = 'scheduled';
+            const now = new Date();
+            if (firstBatch?.scheduled_start) {
+              const startTime = new Date(firstBatch.scheduled_start);
+              const endTime = firstBatch.scheduled_end
+                ? new Date(firstBatch.scheduled_end)
+                : startTime;
+
+              if (now > endTime) {
+                status = 'completed';
+              } else if (now < startTime) {
+                status = 'upcoming';
+              } else {
+                status = 'ongoing';
+              }
+            }
+
+            return {
+              ...exam,
+              batches,
+              duration,
+              nextBatch: firstBatch,
+              status,
+              testType: exam.subject || 'General',
+              date: examDate,
+              time: examTime,
+              totalMarks: exam.total_marks,
+            };
+          } catch (err) {
+            console.error(`Error loading batches for exam ${exam.id}:`, err);
+            return {
+              ...exam,
+              batches: [],
+              duration: 'N/A',
+              nextBatch: null,
+              status: 'scheduled',
+              testType: exam.subject || 'General',
+              date: exam.created_at,
+              time: 'N/A',
+              totalMarks: exam.total_marks,
+            };
+          }
+        })
+      );
+
+      setExams(formattedExams);
+
+      // Extract unique subjects
+      const uniqueSubjects = Array.from(
+        new Set(formattedExams.map((exam) => exam.subject).filter(Boolean))
+      );
+      setSubjects(['All', ...uniqueSubjects]);
     } catch (err) {
       console.error('Error loading exams:', err);
       setError('Failed to load exams. Please try again.');
-      // Fallback to mock data on error
-      setExams(mockExamData);
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadExams();
+    setRefreshing(false);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'upcoming':
         return '#2563EB';
-      case 'missed':
-        return '#EF4444';
+      case 'ongoing':
+        return '#EA580C';
       case 'completed':
         return '#059669';
       default:
@@ -138,38 +165,201 @@ export default function ExamsScreen() {
     }
   };
 
-  const getStatusBgColor = (status: string) => {
+  const getStatusText = (status: string) => {
     switch (status) {
       case 'upcoming':
-        return '#EFF6FF';
-      case 'missed':
-        return '#FEF2F2';
+        return 'Upcoming';
+      case 'ongoing':
+        return 'Ongoing';
       case 'completed':
-        return '#ECFDF5';
+        return 'Completed';
       default:
-        return '#F1F5F9';
+        return 'Scheduled';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'upcoming':
-        return Clock;
-      case 'missed':
-        return AlertCircle;
-      case 'completed':
-        return CheckCircle;
-      default:
-        return Clock;
+  const isToday = (dateString: string) => {
+    const today = new Date();
+    const examDate = new Date(dateString);
+    return examDate.toDateString() === today.toDateString();
+  };
+
+  const isTomorrow = (dateString: string) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const examDate = new Date(dateString);
+    return examDate.toDateString() === tomorrow.toDateString();
+  };
+
+  const isThisWeek = (dateString: string) => {
+    const today = new Date();
+    const examDate = new Date(dateString);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    return examDate >= startOfWeek && examDate <= endOfWeek;
+  };
+
+  const getFilteredExams = () => {
+    let filtered = exams;
+
+    // Apply time filter
+    if (timeFilter !== 'all') {
+      filtered = filtered.filter((exam) => {
+        const examDate = exam.nextBatch?.scheduled_start || exam.date;
+        switch (timeFilter) {
+          case 'today':
+            return isToday(examDate);
+          case 'tomorrow':
+            return isTomorrow(examDate);
+          case 'this_week':
+            return isThisWeek(examDate);
+          default:
+            return true;
+        }
+      });
     }
+
+    // Apply subject filter
+    if (subjectFilter !== 'all') {
+      filtered = filtered.filter((exam) => exam.subject === subjectFilter);
+    }
+
+    return filtered;
   };
 
-  const handleExamPress = (examId: number) => {
-    router.push(`/(tabs)/exams/${examId}`);
+  const handleExamPress = (exam: any) => {
+    router.push(`/exams/${exam.id}`);
   };
 
-  const upcomingExams = exams.filter(exam => exam.status === 'upcoming');
-  const missedExams = exams.filter(exam => exam.status === 'missed');
+  const renderTimeFilter = () => {
+    const timeOptions = [
+      { value: 'all', label: 'All' },
+      { value: 'today', label: 'Today' },
+      { value: 'tomorrow', label: 'Tomorrow' },
+      { value: 'this_week', label: 'This Week' },
+    ];
+
+    return (
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Time Filter:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {timeOptions.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.filterButton,
+                timeFilter === option.value && styles.filterButtonActive,
+              ]}
+              onPress={() => setTimeFilter(option.value as any)}
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  timeFilter === option.value && styles.filterButtonTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderSubjectFilter = () => {
+    return (
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Subject Filter:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {subjects.map((subject) => (
+            <TouchableOpacity
+              key={subject}
+              style={[
+                styles.filterButton,
+                (subjectFilter === 'all' && subject === 'All') ||
+                subjectFilter === subject
+                  ? styles.filterButtonActive
+                  : null,
+              ]}
+              onPress={() =>
+                setSubjectFilter(subject === 'All' ? 'all' : subject)
+              }
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  (subjectFilter === 'all' && subject === 'All') ||
+                  subjectFilter === subject
+                    ? styles.filterButtonTextActive
+                    : null,
+                ]}
+              >
+                {subject}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderExamCard = (exam: any) => (
+    <TouchableOpacity
+      key={exam.id}
+      style={styles.examCard}
+      onPress={() => handleExamPress(exam)}
+    >
+      <View style={styles.examHeader}>
+        <Text style={styles.examName}>{exam.name}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: getStatusColor(exam.status) },
+          ]}
+        >
+          <Text style={styles.statusText}>{getStatusText(exam.status)}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.examSubject}>{exam.subject}</Text>
+      {exam.topic && <Text style={styles.examTopic}>{exam.topic}</Text>}
+
+      <View style={styles.examDetails}>
+        <View style={styles.detailRow}>
+          <Calendar size={16} color="#64748B" />
+          <Text style={styles.detailText}>{exam.date}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Clock size={16} color="#64748B" />
+          <Text style={styles.detailText}>{exam.time}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Target size={16} color="#64748B" />
+          <Text style={styles.detailText}>{exam.totalMarks} marks</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Users size={16} color="#64748B" />
+          <Text style={styles.detailText}>{exam.duration}</Text>
+        </View>
+      </View>
+
+      <View style={styles.examFooter}>
+        <Text style={styles.courseText}>{exam.course?.name || 'General'}</Text>
+        <ChevronRight size={20} color="#64748B" />
+      </View>
+    </TouchableOpacity>
+  );
 
   if (loading) {
     return (
@@ -182,172 +372,50 @@ export default function ExamsScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Exam Schedule</Text>
-        <Text style={styles.headerSubtitle}>Track your assessments</Text>
-      </View>
-
-      {error && (
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadExams}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      )}
+      </SafeAreaView>
+    );
+  }
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Notifications Section */}
-        <View style={styles.notificationsSection}>
-          {upcomingExams.length > 0 && (
-            <View style={styles.alertCard}>
-              <View style={styles.alertHeader}>
-                <Bell size={20} color="#EA580C" />
-                <Text style={styles.alertTitle}>Upcoming Exams</Text>
-              </View>
-              <Text style={styles.alertText}>
-                You have {upcomingExams.length} exam{upcomingExams.length > 1 ? 's' : ''} coming up this week.
+  const filteredExams = getFilteredExams();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Exams</Text>
+        <TouchableOpacity style={styles.filterIcon}>
+          <Filter size={24} color="#2563EB" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {renderTimeFilter()}
+        {renderSubjectFilter()}
+
+        <View style={styles.examsList}>
+          {filteredExams.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                No exams found for the selected filters
               </Text>
             </View>
+          ) : (
+            filteredExams.map(renderExamCard)
           )}
-          
-          {missedExams.length > 0 && (
-            <View style={[styles.alertCard, styles.missedAlert]}>
-              <View style={styles.alertHeader}>
-                <AlertCircle size={20} color="#EF4444" />
-                <Text style={styles.alertTitle}>Missed Exams</Text>
-              </View>
-              <Text style={styles.alertText}>
-                You have {missedExams.length} missed exam{missedExams.length > 1 ? 's' : ''}. Contact administration for makeup dates.
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Exam Type Filter */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Filter by Type</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.typeContainer}>
-              {examTypes.map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.typeChip,
-                    selectedType === type && styles.typeChipActive
-                  ]}
-                  onPress={() => setSelectedType(type)}>
-                  <Text style={[
-                    styles.typeText,
-                    selectedType === type && styles.typeTextActive
-                  ]}>
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Exam Cards */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>All Exams</Text>
-          {exams.map((exam) => {
-            const StatusIcon = getStatusIcon(exam.status);
-            return (
-              <TouchableOpacity 
-                key={exam.id} 
-                style={styles.examCard}
-                onPress={() => handleExamPress(exam.id)}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.examInfo}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusBgColor(exam.status) }
-                    ]}>
-                      <StatusIcon size={12} color={getStatusColor(exam.status)} />
-                      <Text style={[
-                        styles.statusText,
-                        { color: getStatusColor(exam.status) }
-                      ]}>
-                        {exam.status.toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.typeTag}>
-                      <Text style={styles.typeTagText}>{exam.type}</Text>
-                    </View>
-                  </View>
-                  {exam.reminders && (
-                    <TouchableOpacity style={styles.reminderButton}>
-                      <Bell size={16} color="#2563EB" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <Text style={styles.examSubject}>{exam.subject}</Text>
-                <Text style={styles.examTopic}>{exam.topic}</Text>
-
-                <View style={styles.examDetails}>
-                  <View style={styles.detailRow}>
-                    <Calendar size={16} color="#64748B" />
-                    <Text style={styles.detailText}>
-                      {new Date(exam.date).toLocaleDateString('en-IN', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Clock size={16} color="#64748B" />
-                    <Text style={styles.detailText}>{exam.time}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Target size={16} color="#64748B" />
-                    <Text style={styles.detailText}>Total Marks: {exam.totalMarks}</Text>
-                  </View>
-                </View>
-
-                {exam.status === 'completed' && exam.marksObtained && (
-                  <View style={styles.resultSection}>
-                    <View style={styles.scoreCard}>
-                      <Award size={20} color="#059669" />
-                      <View style={styles.scoreInfo}>
-                        <Text style={styles.scoreText}>
-                          {exam.marksObtained}/{exam.totalMarks}
-                        </Text>
-                        <Text style={styles.gradeText}>Grade: {exam.grade}</Text>
-                      </View>
-                      <View style={styles.percentageCircle}>
-                        <Text style={styles.percentageText}>
-                          {Math.round((exam.marksObtained / exam.totalMarks) * 100)}%
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.syllabusSection}>
-                  <Text style={styles.syllabusTitle}>Syllabus Coverage:</Text>
-                  <View style={styles.syllabusTopics}>
-                    {exam.syllabus.map((topic: string, index: number) => (
-                      <View key={index} style={styles.topicChip}>
-                        <Text style={styles.topicText}>{topic}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.cardFooter}>
-                  <Text style={styles.locationText}>📍 {exam.location}</Text>
-                  <Text style={styles.durationText}>⏱️ {exam.duration}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -359,295 +427,180 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-  },
-  errorContainer: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
-    alignItems: 'center',
-    gap: 12,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#EF4444',
-    fontFamily: 'Inter-Regular',
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
-  },
   header: {
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginTop: 4,
+  filterIcon: {
+    padding: 8,
   },
   scrollView: {
     flex: 1,
   },
-  notificationsSection: {
+  filterSection: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
-  alertCard: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#EA580C',
-  },
-  missedAlert: {
-    backgroundColor: '#FEF2F2',
-    borderLeftColor: '#EF4444',
-  },
-  alertHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  alertTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-  },
-  alertText: {
+  filterLabel: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#475569',
-    fontFamily: 'Inter-Regular',
-    lineHeight: 20,
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginTop: 24,
     marginBottom: 8,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 16,
-  },
-  typeContainer: {
+  filterScroll: {
     flexDirection: 'row',
-    gap: 12,
-    paddingRight: 20,
   },
-  typeChip: {
-    backgroundColor: '#F1F5F9',
+  filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    backgroundColor: '#F1F5F9',
     borderRadius: 20,
-  },
-  typeChipActive: {
-    backgroundColor: '#2563EB',
-  },
-  typeText: {
-    fontSize: 14,
-    color: '#475569',
-    fontFamily: 'Inter-Medium',
-  },
-  typeTextActive: {
-    color: '#FFFFFF',
-  },
-  examCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  examInfo: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
-  },
-  typeTag: {
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  typeTagText: {
-    fontSize: 10,
-    color: '#64748B',
-    fontFamily: 'Inter-Medium',
+  filterButtonActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
-  reminderButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  filterButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  examsList: {
+    padding: 20,
+  },
+  examCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  examHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  examName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    flex: 1,
+    marginRight: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
   examSubject: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '500',
     color: '#2563EB',
-    fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   examTopic: {
-    fontSize: 16,
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 16,
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 12,
   },
   examDetails: {
-    gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 6,
   },
   detailText: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    marginLeft: 8,
   },
-  resultSection: {
-    marginBottom: 16,
-  },
-  scoreCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-  },
-  scoreInfo: {
-    flex: 1,
-  },
-  scoreText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#059669',
-    fontFamily: 'Inter-Bold',
-  },
-  gradeText: {
-    fontSize: 14,
-    color: '#065F46',
-    fontFamily: 'Inter-Medium',
-  },
-  percentageCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#059669',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  percentageText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
-  },
-  syllabusSection: {
-    marginBottom: 16,
-  },
-  syllabusTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 8,
-  },
-  syllabusTopics: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  topicChip: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  topicText: {
-    fontSize: 12,
-    color: '#475569',
-    fontFamily: 'Inter-Regular',
-  },
-  cardFooter: {
+  examFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#E2E8F0',
   },
-  locationText: {
+  courseText: {
     fontSize: 14,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    fontWeight: '500',
+    color: '#475569',
   },
-  durationText: {
-    fontSize: 14,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    marginTop: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
   },
 });

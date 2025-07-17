@@ -73,7 +73,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="qna"
         options={{
           title: 'Q&A',
@@ -81,7 +81,7 @@ export default function TabLayout() {
             <MessageCircle size={size} color={color} />
           ),
         }}
-      />
+      /> */}
       <Tabs.Screen
         name="profile"
         options={{

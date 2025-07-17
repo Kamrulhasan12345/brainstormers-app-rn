@@ -171,6 +171,7 @@ export interface Database {
           chapter: string | null;
           topic: string | null;
           question_by: string | null;
+          total_marks: number;
           created_at: string;
         };
         Insert: {
@@ -181,6 +182,7 @@ export interface Database {
           chapter?: string | null;
           topic?: string | null;
           question_by?: string | null;
+          total_marks?: number;
           created_at?: string;
         };
         Update: {
@@ -191,6 +193,7 @@ export interface Database {
           chapter?: string | null;
           topic?: string | null;
           question_by?: string | null;
+          total_marks?: number;
           created_at?: string;
         };
       };

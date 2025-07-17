@@ -1,32 +1,75 @@
 import { supabase } from '@/lib/supabase';
-import { ExamWithDetails } from '@/types/database-new';
-import { databaseNotificationService } from './database-notifications';
+
+export interface Exam {
+  id: string;
+  name: string;
+  course_id: string;
+  subject: string;
+  chapter?: string;
+  topic?: string;
+  question_by?: string;
+  created_at: string;
+  course?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  question_by_profile?: {
+    id: string;
+    full_name: string;
+    role: string;
+  };
+}
+
+export interface ExamBatch {
+  id: string;
+  exam_id: string;
+  scheduled_start: string;
+  scheduled_end: string;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'postponed';
+  notes?: string;
+  created_at: string;
+  exam?: Exam;
+}
+
+export interface ExamAttendance {
+  id: string;
+  batch_id: string;
+  student_id: string;
+  status: 'present' | 'absent' | 'late' | 'excused';
+  score?: number;
+  recorded_by?: string;
+  recorded_at: string;
+  student?: {
+    id: string;
+    full_name: string;
+    roll?: string;
+  };
+}
+
+export interface ExamWithBatches extends Exam {
+  exam_batches: ExamBatch[];
+}
 
 class EnhancedExamService {
-  async getAllExams(): Promise<ExamWithDetails[]> {
+  // Exam CRUD operations
+  async getExams() {
     const { data, error } = await supabase
       .from('exams')
       .select(
         `
         *,
-        course:courses(
-          id,
-          name,
-          code,
-          department
-        ),
-        instructor:user_profiles!instructor_id(
-          id,
-          first_name,
-          last_name,
-          email
-        )
+        course:courses(id, name, code),
+        question_by_profile:profiles!exams_question_by_fkey(id, full_name, role)
       `
       )
-      .order('scheduled_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching exams: ${error.message}`);
+    }
+
+    return data as Exam[];
   }
 
   async getExamsForStudent(studentId: string): Promise<ExamWithDetails[]> {

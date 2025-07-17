@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
+  ActivityIndicator,
   Alert,
   Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   ArrowLeft,
   Plus,
@@ -35,6 +39,22 @@ import {
   Attendance,
 } from '@/types/database-new';
 
+// Form data for the batch creation modal
+interface BatchFormData {
+  scheduledDate: Date;
+  scheduledTime: Date;
+  notes: string;
+}
+
+// Props for the CreateBatchModal component
+interface CreateBatchModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+  batchFormData: BatchFormData;
+  setBatchFormData: React.Dispatch<React.SetStateAction<BatchFormData>>;
+}
+
 // Extended attendance type with student information
 interface AttendanceWithStudent extends Attendance {
   student?: {
@@ -52,6 +72,7 @@ export default function LecturesManagement() {
   const [lectures, setLectures] = useState<LectureWithDetails[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [subjects, setSubjects] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState('All');
@@ -66,6 +87,12 @@ export default function LecturesManagement() {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showCreateBatchModal, setShowCreateBatchModal] = useState(false);
+  const [batchFormData, setBatchFormData] = useState<BatchFormData>({
+    scheduledDate: new Date(),
+    scheduledTime: new Date(),
+    notes: '',
+  });
 
   // Simple refresh function that can be used by child components
   const refreshBatches = () => {
@@ -86,11 +113,7 @@ export default function LecturesManagement() {
   });
 
   // Load data
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [lecturesData, coursesData] = await Promise.all([
@@ -111,7 +134,19 @@ export default function LecturesManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -487,148 +522,159 @@ export default function LecturesManagement() {
     };
 
     const createNewBatch = async () => {
-      Alert.prompt(
-        'Create New Batch',
-        'Enter the scheduled date and time (YYYY-MM-DD HH:MM):',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Create',
-            onPress: async (dateTime) => {
-              if (!dateTime) return;
-              try {
-                await lecturesManagementService.createLectureBatch(
-                  lecture.id,
-                  new Date(dateTime).toISOString()
-                );
-                await loadBatches();
-                Alert.alert('Success', 'New batch created successfully');
-              } catch (error) {
-                console.error('Error creating batch:', error);
-                Alert.alert('Error', 'Failed to create batch');
-              }
-            },
-          },
-        ]
-      );
+      setBatchFormData({
+        scheduledDate: new Date(),
+        scheduledTime: new Date(),
+        notes: '',
+      });
+      setShowCreateBatchModal(true);
+    };
+
+    const handleCreateBatch = async () => {
+      try {
+        const combinedDateTime = new Date(batchFormData.scheduledDate);
+        combinedDateTime.setHours(batchFormData.scheduledTime.getHours());
+        combinedDateTime.setMinutes(batchFormData.scheduledTime.getMinutes());
+
+        await lecturesManagementService.createLectureBatch(
+          lecture.id,
+          combinedDateTime.toISOString()
+        );
+
+        setShowCreateBatchModal(false);
+        await loadBatches();
+        Alert.alert('Success', 'New batch created successfully');
+      } catch (error) {
+        console.error('Error creating batch:', error);
+        Alert.alert('Error', 'Failed to create batch');
+      }
     };
 
     return (
-      <ScrollView style={styles.batchesContainer}>
-        <View style={styles.batchesHeader}>
-          <Text style={styles.batchesTitle}>Lecture Batches</Text>
-          <TouchableOpacity
-            style={styles.addBatchButton}
-            onPress={createNewBatch}
-          >
-            <Plus size={16} color="#FFFFFF" />
-            <Text style={styles.addBatchButtonText}>New Batch</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={{ flex: 1 }}>
+        <CreateBatchModal
+          visible={showCreateBatchModal}
+          onClose={() => setShowCreateBatchModal(false)}
+          onSubmit={handleCreateBatch}
+          batchFormData={batchFormData}
+          setBatchFormData={setBatchFormData}
+        />
+        <ScrollView style={styles.batchesContainer}>
+          <View style={styles.batchesHeader}>
+            <Text style={styles.batchesTitle}>Lecture Batches</Text>
+            <TouchableOpacity
+              style={styles.addBatchButton}
+              onPress={createNewBatch}
+            >
+              <Plus size={16} color="#FFFFFF" />
+              <Text style={styles.addBatchButtonText}>New Batch</Text>
+            </TouchableOpacity>
+          </View>
 
-        {batchesLoading ? (
-          <Text style={styles.loadingText}>Loading batches...</Text>
-        ) : batches.length === 0 ? (
-          <Text style={styles.emptyText}>
-            No batches found for this lecture
-          </Text>
-        ) : (
-          batches.map((batch) => (
-            <View key={batch.id} style={styles.batchCard}>
-              <View style={styles.batchHeader}>
-                <Text style={styles.batchDate}>
-                  {new Date(batch.scheduled_at).toLocaleDateString()}
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusBgColor(batch.status) },
-                  ]}
-                >
-                  <Text
+          {batchesLoading ? (
+            <Text style={styles.loadingText}>Loading batches...</Text>
+          ) : batches.length === 0 ? (
+            <Text style={styles.emptyText}>
+              No batches found for this lecture
+            </Text>
+          ) : (
+            batches.map((batch) => (
+              <View key={batch.id} style={styles.batchCard}>
+                <View style={styles.batchHeader}>
+                  <Text style={styles.batchDate}>
+                    {new Date(batch.scheduled_at).toLocaleDateString()}
+                  </Text>
+                  <View
                     style={[
-                      styles.statusText,
-                      { color: getStatusColor(batch.status) },
+                      styles.statusBadge,
+                      { backgroundColor: getStatusBgColor(batch.status) },
                     ]}
                   >
-                    {batch.status.toUpperCase()}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: getStatusColor(batch.status) },
+                      ]}
+                    >
+                      {batch.status.toUpperCase()}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.batchTime}>
-                {new Date(batch.scheduled_at).toLocaleTimeString()}
-              </Text>
+                <Text style={styles.batchTime}>
+                  {new Date(batch.scheduled_at).toLocaleTimeString()}
+                </Text>
 
-              {batch.notes && (
-                <Text style={styles.batchNotes}>{batch.notes}</Text>
-              )}
-
-              <View style={styles.batchStats}>
-                <View style={styles.batchStat}>
-                  <Text style={styles.batchStatNumber}>
-                    {batch.attendance_count || 0}
-                  </Text>
-                  <Text style={styles.batchStatLabel}>Students</Text>
-                </View>
-                <View style={styles.batchStat}>
-                  <Text style={styles.batchStatNumber}>
-                    {Math.round(batch.attendance_rate || 0)}%
-                  </Text>
-                  <Text style={styles.batchStatLabel}>Attendance</Text>
-                </View>
-                <View style={styles.batchStat}>
-                  <Text style={styles.batchStatNumber}>
-                    {batch.reviews?.length || 0}
-                  </Text>
-                  <Text style={styles.batchStatLabel}>Reviews</Text>
-                </View>
-                <View style={styles.batchStat}>
-                  <Text style={styles.batchStatNumber}>
-                    {Array.isArray(batch.lecture_notes)
-                      ? batch.lecture_notes.length
-                      : 0}
-                  </Text>
-                  <Text style={styles.batchStatLabel}>Notes</Text>
-                </View>
-              </View>
-
-              <View style={styles.batchActions}>
-                <TouchableOpacity
-                  style={styles.attendanceButton}
-                  onPress={() => openAttendanceModal(batch)}
-                >
-                  <Users size={14} color="#FFFFFF" />
-                  <Text style={styles.attendanceButtonText}>Attendance</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.reviewsButton}
-                  onPress={() => openReviewsModal(batch)}
-                >
-                  <BookOpen size={14} color="#FFFFFF" />
-                  <Text style={styles.reviewsButtonText}>Reviews</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.notesButton}
-                  onPress={() => openNotesModal(batch)}
-                >
-                  <BookOpen size={14} color="#FFFFFF" />
-                  <Text style={styles.notesButtonText}>Notes</Text>
-                </TouchableOpacity>
-                {batch.status === 'scheduled' && (
-                  <TouchableOpacity
-                    style={styles.completeButton}
-                    onPress={() => handleStatusUpdate(batch.id, 'completed')}
-                  >
-                    <CheckCircle size={14} color="#FFFFFF" />
-                    <Text style={styles.completeButtonText}>Complete</Text>
-                  </TouchableOpacity>
+                {batch.notes && (
+                  <Text style={styles.batchNotes}>{batch.notes}</Text>
                 )}
+
+                <View style={styles.batchStats}>
+                  <View style={styles.batchStat}>
+                    <Text style={styles.batchStatNumber}>
+                      {batch.attendance_count || 0}
+                    </Text>
+                    <Text style={styles.batchStatLabel}>Students</Text>
+                  </View>
+                  <View style={styles.batchStat}>
+                    <Text style={styles.batchStatNumber}>
+                      {Math.round(batch.attendance_rate || 0)}%
+                    </Text>
+                    <Text style={styles.batchStatLabel}>Attendance</Text>
+                  </View>
+                  <View style={styles.batchStat}>
+                    <Text style={styles.batchStatNumber}>
+                      {batch.reviews?.length || 0}
+                    </Text>
+                    <Text style={styles.batchStatLabel}>Reviews</Text>
+                  </View>
+                  <View style={styles.batchStat}>
+                    <Text style={styles.batchStatNumber}>
+                      {Array.isArray(batch.lecture_notes)
+                        ? batch.lecture_notes.length
+                        : 0}
+                    </Text>
+                    <Text style={styles.batchStatLabel}>Notes</Text>
+                  </View>
+                </View>
+
+                <View style={styles.batchActions}>
+                  <TouchableOpacity
+                    style={styles.attendanceButton}
+                    onPress={() => openAttendanceModal(batch)}
+                  >
+                    <Users size={14} color="#FFFFFF" />
+                    <Text style={styles.attendanceButtonText}>Attendance</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.reviewsButton}
+                    onPress={() => openReviewsModal(batch)}
+                  >
+                    <BookOpen size={14} color="#FFFFFF" />
+                    <Text style={styles.reviewsButtonText}>Reviews</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.notesButton}
+                    onPress={() => openNotesModal(batch)}
+                  >
+                    <BookOpen size={14} color="#FFFFFF" />
+                    <Text style={styles.notesButtonText}>Notes</Text>
+                  </TouchableOpacity>
+                  {batch.status === 'scheduled' && (
+                    <TouchableOpacity
+                      style={styles.completeButton}
+                      onPress={() => handleStatusUpdate(batch.id, 'completed')}
+                    >
+                      <CheckCircle size={14} color="#FFFFFF" />
+                      <Text style={styles.completeButtonText}>Complete</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+            ))
+          )}
+        </ScrollView>
+      </View>
     );
   };
 
@@ -787,6 +833,13 @@ export default function LecturesManagement() {
               <AlertCircle size={16} color="#FFFFFF" />
               <Text style={styles.bulkButtonText}>Mark All Late</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bulkButton, styles.bulkExcusedButton]}
+              onPress={() => markAllAttendance('excused')}
+            >
+              <Clock size={16} color="#FFFFFF" />
+              <Text style={styles.bulkButtonText}>Mark All Excused</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -849,6 +902,14 @@ export default function LecturesManagement() {
                     }
                   >
                     <Text style={styles.statusButtonText}>Late</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statusButton, styles.excusedButton]}
+                    onPress={() =>
+                      markAttendance(attendance.student_id, 'excused')
+                    }
+                  >
+                    <Text style={styles.statusButtonText}>Excused</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1141,6 +1202,9 @@ export default function LecturesManagement() {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         <View style={styles.lecturesContainer}>
           {loading ? (
@@ -1214,40 +1278,80 @@ export default function LecturesManagement() {
         </View>
       </ScrollView>
 
-      {/* Add/Edit Modal */}
+      {/* Modals */}
       <Modal
         visible={showAddModal || !!editingLecture}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowAddModal(false);
+          setEditingLecture(null);
+          resetForm();
+        }}
       >
         <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowAddModal(false);
+                setEditingLecture(null);
+                resetForm();
+              }}
+            >
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              {editingLecture ? 'Edit Lecture' : 'Add New Lecture'}
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
           <LectureForm />
         </SafeAreaView>
       </Modal>
 
-      {/* Batches Modal */}
+      <Modal
+        visible={!!selectedLecture}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSelectedLecture(null)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setSelectedLecture(null)}>
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Lecture Details</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          {selectedLecture && <LectureDetails lecture={selectedLecture} />}
+        </SafeAreaView>
+      </Modal>
+
       <Modal
         visible={showBatchesModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => setShowBatchesModal(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowBatchesModal(false)}>
               <ArrowLeft size={24} color="#1E293B" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Lecture Batches</Text>
+            <Text style={styles.modalTitle}>
+              {selectedLecture?.topic} - Batches
+            </Text>
             <View style={{ width: 24 }} />
           </View>
           {selectedLecture && <BatchesModal lecture={selectedLecture} />}
         </SafeAreaView>
       </Modal>
 
-      {/* Attendance Modal */}
       <Modal
         visible={showAttendanceModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => setShowAttendanceModal(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -1263,11 +1367,11 @@ export default function LecturesManagement() {
         </SafeAreaView>
       </Modal>
 
-      {/* Reviews Modal */}
       <Modal
         visible={showReviewsModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => setShowReviewsModal(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -1281,11 +1385,11 @@ export default function LecturesManagement() {
         </SafeAreaView>
       </Modal>
 
-      {/* Notes Modal */}
       <Modal
         visible={showNotesModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotesModal(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -1298,27 +1402,126 @@ export default function LecturesManagement() {
           {selectedBatch && <NotesModal batch={selectedBatch} />}
         </SafeAreaView>
       </Modal>
-
-      {/* Details Modal */}
-      <Modal
-        visible={!!selectedLecture}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setSelectedLecture(null)}>
-              <ArrowLeft size={24} color="#1E293B" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Lecture Details</Text>
-            <View style={{ width: 24 }} />
-          </View>
-          {selectedLecture && <LectureDetails lecture={selectedLecture} />}
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
+
+const CreateBatchModal = ({
+  visible,
+  onClose,
+  onSubmit,
+  batchFormData,
+  setBatchFormData,
+}: CreateBatchModalProps) => {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={onClose}>
+            <ArrowLeft size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Create New Batch</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <ScrollView style={styles.formContainer}>
+          <Text style={styles.formTitle}>Schedule New Batch</Text>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Date *</Text>
+            <TouchableOpacity
+              style={styles.dateTimeButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>
+                {batchFormData.scheduledDate.toLocaleDateString()}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={batchFormData.scheduledDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setBatchFormData({
+                      ...batchFormData,
+                      scheduledDate: selectedDate,
+                    });
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Time *</Text>
+            <TouchableOpacity
+              style={styles.dateTimeButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>
+                {batchFormData.scheduledTime.toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            </TouchableOpacity>
+            {showTimePicker && (
+              <DateTimePicker
+                value={batchFormData.scheduledTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedTime) => {
+                  setShowTimePicker(false);
+                  if (selectedTime) {
+                    setBatchFormData({
+                      ...batchFormData,
+                      scheduledTime: selectedTime,
+                    });
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Notes (Optional)</Text>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={batchFormData.notes}
+              onChangeText={(text) =>
+                setBatchFormData({ ...batchFormData, notes: text })
+              }
+              placeholder="Enter batch notes..."
+              multiline
+              numberOfLines={3}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+
+          <View style={styles.formButtons}>
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveButton} onPress={onSubmit}>
+              <Text style={styles.saveButtonText}>Create Batch</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -1342,7 +1545,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
   },
   addButton: {
     backgroundColor: '#2563EB',
@@ -1374,7 +1576,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
-    fontFamily: 'Inter-Regular',
   },
   filtersSection: {
     paddingLeft: 20,
@@ -1390,7 +1591,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#475569',
-    fontFamily: 'Inter-SemiBold',
   },
   filterChip: {
     backgroundColor: '#F1F5F9',
@@ -1404,7 +1604,6 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 12,
     color: '#475569',
-    fontFamily: 'Inter-Medium',
   },
   filterTextActive: {
     color: '#FFFFFF',
@@ -1413,19 +1612,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   lecturesContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 20,
   },
   lectureCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   lectureHeader: {
     flexDirection: 'row',
@@ -1446,13 +1645,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
   },
   subjectText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2563EB',
-    fontFamily: 'Inter-SemiBold',
   },
   lectureActions: {
     flexDirection: 'row',
@@ -1470,13 +1667,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   teacherName: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Medium',
     marginBottom: 16,
   },
   lectureDetails: {
@@ -1490,7 +1685,6 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
   },
   modalContainer: {
     flex: 1,
@@ -1498,8 +1692,8 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
@@ -1510,17 +1704,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
   },
   formContainer: {
     flex: 1,
     padding: 20,
   },
   formTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
     marginBottom: 24,
   },
   formGroup: {
@@ -1532,27 +1724,39 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '500',
+    color: '#334155',
     marginBottom: 8,
   },
   textInput: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     fontSize: 16,
     color: '#1E293B',
-    fontFamily: 'Inter-Regular',
   },
   textArea: {
-    height: 80,
+    height: 100,
     textAlignVertical: 'top',
   },
-  // Loading and empty states
+  dateTimeButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateTimeText: {
+    fontSize: 16,
+    color: '#1E293B',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1562,7 +1766,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
   },
   emptyContainer: {
     flex: 1,
@@ -1573,22 +1776,17 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
   },
-  // Course and chapter text
   courseText: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Medium',
     marginBottom: 8,
   },
   chapterText: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
     marginBottom: 16,
   },
-  // Batches Modal Styles
   batchesButton: {
     backgroundColor: '#2563EB',
     borderRadius: 8,
@@ -1600,9 +1798,8 @@ const styles = StyleSheet.create({
   },
   batchesButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    marginLeft: 8,
   },
   batchesContainer: {
     flex: 1,
@@ -1612,39 +1809,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   batchesTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
   },
   addBatchButton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    backgroundColor: '#16A34A',
     paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   addBatchButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    marginLeft: 4,
   },
   batchCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    padding: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 2,
+    elevation: 1,
   },
   batchHeader: {
     flexDirection: 'row',
@@ -1655,26 +1849,26 @@ const styles = StyleSheet.create({
   batchDate: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
+    color: '#334155',
   },
   batchTime: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
     marginBottom: 8,
   },
   batchNotes: {
     fontSize: 14,
     color: '#475569',
-    fontFamily: 'Inter-Regular',
-    marginBottom: 16,
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   batchStats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     marginBottom: 16,
-    paddingHorizontal: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   batchStat: {
     alignItems: 'center',
@@ -1684,262 +1878,349 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
   },
   batchStatLabel: {
     fontSize: 12,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginTop: 4,
   },
   batchActions: {
     flexDirection: 'row',
-    gap: 6,
     flexWrap: 'wrap',
+    gap: 8,
   },
   attendanceButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0EA5E9',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     flex: 1,
-    minWidth: 80,
+    minWidth: 100,
   },
   attendanceButtonText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '500',
+    marginLeft: 6,
   },
   reviewsButton: {
-    backgroundColor: '#059669',
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     flex: 1,
-    minWidth: 80,
+    minWidth: 100,
   },
   reviewsButtonText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '500',
+    marginLeft: 6,
   },
   notesButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#F97316',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     flex: 1,
-    minWidth: 70,
+    minWidth: 100,
   },
   notesButtonText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '500',
+    marginLeft: 6,
   },
   completeButton: {
-    backgroundColor: '#059669',
+    backgroundColor: '#16A34A',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     flex: 1,
-    minWidth: 85,
+    minWidth: 100,
   },
   completeButtonText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '500',
+    marginLeft: 6,
   },
-  // Attendance Modal Styles
   attendanceContainer: {
-    flex: 1,
-    padding: 20,
+    padding: 16,
   },
   attendanceTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   attendanceSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    marginBottom: 20,
+  },
+  bulkAttendanceSection: {
     marginBottom: 24,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    padding: 12,
+  },
+  bulkAttendanceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 12,
+  },
+  bulkAttendanceButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  bulkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  bulkPresentButton: {
+    backgroundColor: '#16A34A',
+  },
+  bulkAbsentButton: {
+    backgroundColor: '#DC2626',
+  },
+  bulkLateButton: {
+    backgroundColor: '#D97706',
+  },
+  bulkExcusedButton: {
+    backgroundColor: '#2563EB',
+  },
+  bulkButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#475569',
+    marginBottom: 4,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    maxWidth: '80%',
   },
   attendanceList: {
     gap: 12,
   },
   attendanceCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   attendanceInfo: {
-    marginBottom: 12,
+    flex: 1,
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
   },
   studentRoll: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginTop: 4,
   },
   attendanceStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    width: 100,
   },
   statusLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '500',
   },
   attendanceButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
   },
   statusButton: {
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flex: 1,
-    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
   statusButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    fontWeight: '500',
   },
   presentButton: {
-    backgroundColor: '#059669',
+    backgroundColor: '#16A34A',
   },
   absentButton: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#DC2626',
   },
   lateButton: {
-    backgroundColor: '#EA580C',
+    backgroundColor: '#D97706',
   },
-  // Reviews Modal Styles
+  excusedButton: {
+    backgroundColor: '#2563EB',
+  },
   reviewsContainer: {
-    flex: 1,
-    padding: 20,
+    padding: 16,
   },
   reviewsTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   reviewsSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   addReviewSection: {
     marginBottom: 24,
   },
   reviewInput: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
+    borderColor: '#CBD5E1',
+    fontSize: 14,
     color: '#1E293B',
-    fontFamily: 'Inter-Regular',
     height: 80,
     textAlignVertical: 'top',
     marginBottom: 12,
   },
   addReviewButton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 8,
+    backgroundColor: '#16A34A',
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
   },
   addReviewButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    marginLeft: 8,
   },
   reviewsList: {
     gap: 12,
   },
   reviewCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: 8,
+    padding: 12,
   },
   reviewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginBottom: 8,
   },
   reviewerName: {
-    fontSize: 14,
     fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
   },
   reviewRole: {
     fontSize: 12,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    marginLeft: 4,
   },
   reviewDate: {
     fontSize: 12,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
     marginLeft: 'auto',
   },
   reviewComment: {
     fontSize: 14,
-    color: '#475569',
-    fontFamily: 'Inter-Regular',
-    lineHeight: 20,
+    color: '#334155',
+  },
+  notesContainer: {
+    padding: 16,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  notesTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  addNoteButton: {
+    backgroundColor: '#16A34A',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addNoteButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  notesSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 20,
+  },
+  notesList: {
+    gap: 12,
+  },
+  noteCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  noteUploader: {
+    fontWeight: '500',
+    color: '#334155',
+  },
+  noteDate: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  noteUrl: {
+    fontSize: 14,
+    color: '#0EA5E9',
+    marginBottom: 12,
+  },
+  deleteNoteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+  },
+  deleteNoteButtonText: {
+    color: '#EF4444',
+    marginLeft: 4,
+    fontWeight: '500',
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -1947,349 +2228,130 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pickerOption: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
   },
   pickerOptionActive: {
-    backgroundColor: '#2563EB',
+    borderColor: '#3B82F6',
+    backgroundColor: '#EFF6FF',
   },
   pickerOptionText: {
     fontSize: 14,
-    color: '#475569',
-    fontFamily: 'Inter-Medium',
+    color: '#334155',
   },
   pickerOptionTextActive: {
-    color: '#FFFFFF',
+    color: '#3B82F6',
+    fontWeight: '600',
   },
   formButtons: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'flex-end',
     marginTop: 24,
   },
   cancelButton: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginRight: 12,
   },
   cancelButtonText: {
-    fontSize: 16,
+    color: '#334155',
     fontWeight: '600',
-    color: '#64748B',
-    fontFamily: 'Inter-SemiBold',
   },
   saveButton: {
-    flex: 1,
     backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
   },
   saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '600',
   },
   detailsContainer: {
-    flex: 1,
     padding: 20,
   },
   detailsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     marginBottom: 24,
   },
   detailsTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
-    flex: 1,
-    marginRight: 16,
   },
   detailsSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   detailsSectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
+    color: '#334155',
     marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 8,
   },
   detailsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    margin: -8,
   },
   detailItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    minWidth: '45%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    width: '50%',
+    padding: 8,
   },
   detailLabel: {
     fontSize: 12,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginTop: 4,
     marginBottom: 2,
   },
   detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
   },
   descriptionText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#475569',
-    fontFamily: 'Inter-Regular',
-    lineHeight: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-  },
-  materialsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  materialChip: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  materialText: {
-    fontSize: 12,
-    color: '#2563EB',
-    fontFamily: 'Inter-Medium',
-  },
-  attendanceStats: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  attendanceStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  attendanceNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1E293B',
-    fontFamily: 'Inter-Bold',
-  },
-  attendanceLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginTop: 4,
+    marginBottom: 16,
+    lineHeight: 20,
   },
   detailsActions: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'flex-end',
     marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 20,
   },
   editButton: {
-    flex: 1,
+    backgroundColor: '#1D4ED8',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
+    marginRight: 12,
   },
   editButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '600',
+    marginLeft: 8,
   },
   deleteButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 8,
   },
   deleteButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
-  },
-  // Notes Modal Styles
-  notesContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  notesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  notesTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1E293B',
-    fontFamily: 'Inter-Bold',
-  },
-  notesSubtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginBottom: 24,
-  },
-  addNoteButton: {
-    backgroundColor: '#7C3AED',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  addNoteButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
-  },
-  notesList: {
-    gap: 12,
-  },
-  noteCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  noteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  noteUploader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-  },
-  noteDate: {
-    fontSize: 12,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-  },
-  noteUrl: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontFamily: 'Inter-Regular',
-    marginBottom: 12,
-  },
-  deleteNoteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-  },
-  deleteNoteButtonText: {
-    fontSize: 12,
-    color: '#EF4444',
-    fontFamily: 'Inter-Medium',
-  },
-  // Bulk Attendance Styles
-  bulkAttendanceSection: {
-    marginBottom: 24,
-    padding: 16,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-  },
-  bulkAttendanceTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 16,
-  },
-  bulkAttendanceButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    flexWrap: 'wrap',
-  },
-  bulkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-    flex: 1,
-    minWidth: '30%',
-  },
-  bulkPresentButton: {
-    backgroundColor: '#059669',
-  },
-  bulkAbsentButton: {
-    backgroundColor: '#EF4444',
-  },
-  bulkLateButton: {
-    backgroundColor: '#EA580C',
-  },
-  bulkButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748B',
-    fontFamily: 'Inter-SemiBold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#94A3B8',
-    fontFamily: 'Inter-Regular',
-    textAlign: 'center',
-    lineHeight: 20,
+    marginLeft: 8,
   },
 });

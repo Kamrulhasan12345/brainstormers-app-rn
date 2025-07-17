@@ -439,6 +439,8 @@ export interface CourseWithDetails extends Course {
   lectures?: Lecture[];
   exams?: Exam[];
   enrollment_count?: number;
+  lecture_count?: number;
+  total_duration?: number;
 }
 
 export interface LectureWithDetails extends Lecture {

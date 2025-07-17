@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
   ActivityIndicator,
   FlatList,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -38,6 +39,7 @@ export default function AdminTeachersScreen() {
     useState<TeacherWithProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [formData, setFormData] = useState<TeacherFormData>({
     email: '',
     password: '',
@@ -46,15 +48,7 @@ export default function AdminTeachersScreen() {
     department: '',
   });
 
-  useEffect(() => {
-    loadTeachers();
-  }, []);
-
-  useEffect(() => {
-    filterTeachers();
-  }, [teachers, searchQuery]);
-
-  const loadTeachers = async () => {
+  const loadTeachers = useCallback(async () => {
     try {
       setLoading(true);
       const teachersData = await teacherService.getAllTeachers();
@@ -65,9 +59,9 @@ export default function AdminTeachersScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filterTeachers = () => {
+  const filterTeachers = useCallback(() => {
     if (!searchQuery.trim()) {
       setFilteredTeachers(teachers);
       return;
@@ -83,7 +77,21 @@ export default function AdminTeachersScreen() {
         teacher.department?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredTeachers(filtered);
-  };
+  }, [teachers, searchQuery]);
+
+  useEffect(() => {
+    loadTeachers();
+  }, [loadTeachers]);
+
+  useEffect(() => {
+    filterTeachers();
+  }, [filterTeachers]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadTeachers();
+    setRefreshing(false);
+  }, [loadTeachers]);
 
   const resetForm = () => {
     setFormData({
@@ -301,6 +309,9 @@ export default function AdminTeachersScreen() {
         keyExtractor={(item) => item.id}
         style={styles.teachersList}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No teachers found</Text>

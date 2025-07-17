@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
   ActivityIndicator,
   FlatList,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -54,6 +55,8 @@ export default function AdminStudentsScreen() {
     useState<StudentWithProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [formData, setFormData] = useState<StudentFormData>({
     email: '',
     password: '',
@@ -63,17 +66,8 @@ export default function AdminStudentsScreen() {
 
   const [selectedCourseId, setSelectedCourseId] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    filterStudents();
-  }, [students, searchQuery]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
       const [studentsData, coursesData] = await Promise.all([
         studentService.getAllStudents(),
         courseService.getAllCourses(),
@@ -81,12 +75,26 @@ export default function AdminStudentsScreen() {
       setStudents(studentsData);
       setCourses(coursesData);
     } catch (error) {
-      console.error('Error loading data:', error);
-      Alert.alert('Error', 'Failed to load data. Please try again.');
+      console.error('Failed to load data:', error);
+      Alert.alert('Error', 'Failed to load student and course data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    filterStudents();
+  }, [students, searchQuery]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const filterStudents = () => {
     if (!searchQuery.trim()) {
@@ -401,6 +409,9 @@ export default function AdminStudentsScreen() {
         keyExtractor={(item) => item.id}
         style={styles.studentsList}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <GraduationCap size={48} color="#D1D5DB" />

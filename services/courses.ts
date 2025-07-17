@@ -31,6 +31,8 @@ class CourseService {
     return (data || []).map((course) => ({
       ...course,
       enrollment_count: course.course_enrollments?.[0]?.count || 0,
+      lecture_count: course.lectures?.length || 0,
+      total_duration: 0, // We don't have duration data in the current schema
     }));
   }
 

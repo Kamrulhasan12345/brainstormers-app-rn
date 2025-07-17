@@ -12,6 +12,7 @@ import {
   Switch,
   Platform,
   BackHandler,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -47,6 +48,7 @@ export default function ExamsManagement() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -174,6 +176,12 @@ export default function ExamsManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
   };
 
   const getBatchStatus = (batch: ExamBatch) => {
@@ -861,6 +869,14 @@ export default function ExamsManagement() {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#2563EB']}
+            tintColor="#2563EB"
+          />
+        }
       >
         <View style={styles.examsContainer}>
           {loading ? (

@@ -1,144 +1,248 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Filter, Clock, MapPin, Play, FileText, Users } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { Search, Filter, Clock, FileText, Users } from 'lucide-react-native';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { lecturesService } from '@/services/lectures';
-import { isDemoMode } from '@/lib/supabase';
+import { lecturesManagementService } from '@/services/lectures-management';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
-const hscSubjects = [
-  'Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Hindi',
-  'Marathi', 'History', 'Geography', 'Economics', 'Political Science',
-  'Psychology', 'Sociology', 'Philosophy', 'Logic', 'Statistics',
-  'Geology', 'Environmental Science', 'Computer Science', 'Electronics',
-  'Biotechnology', 'Information Technology', 'Agriculture', 'Home Science',
-  'Defence Studies', 'Physical Education', 'Art'
+const filterOptions = [
+  'All',
+  'Today',
+  'Tomorrow',
+  'This Week',
+  'Upcoming',
+  'Ongoing',
+  'Completed',
+  'Postponed',
 ];
-
-// Mock data for demo mode
-const mockLectureData = [
-  {
-    id: 1,
-    subject: 'Physics',
-    topic: 'Electromagnetic Induction',
-    teacher: 'Dr. Rajesh Kumar',
-    date: '2025-01-20',
-    time: '10:00 AM - 11:30 AM',
-    location: 'Room A-101',
-    status: 'upcoming',
-    materials: 3,
-    attendees: 45,
-    description: 'Understanding Faraday\'s law and its applications in real-world scenarios.',
-    notesCount: 5,
-    questionsCount: 3,
-  },
-  {
-    id: 2,
-    subject: 'Chemistry',
-    topic: 'Organic Compounds - Alcohols',
-    teacher: 'Prof. Meera Patel',
-    date: '2025-01-20',
-    time: '2:00 PM - 3:30 PM',
-    location: 'Room B-205',
-    status: 'upcoming',
-    materials: 5,
-    attendees: 38,
-    description: 'Classification, properties, and reactions of alcohols with practical examples.',
-    notesCount: 2,
-    questionsCount: 1,
-  },
-  {
-    id: 3,
-    subject: 'Mathematics',
-    topic: 'Calculus - Derivatives',
-    teacher: 'Mr. Amit Shah',
-    date: '2025-01-21',
-    time: '9:00 AM - 10:30 AM',
-    location: 'Room A-203',
-    status: 'scheduled',
-    materials: 4,
-    attendees: 52,
-    description: 'Advanced derivative techniques and their applications in optimization problems.',
-    notesCount: 8,
-    questionsCount: 6,
-  },
-  {
-    id: 4,
-    subject: 'Biology',
-    topic: 'Human Reproduction System',
-    teacher: 'Dr. Priya Sharma',
-    date: '2025-01-19',
-    time: '11:00 AM - 12:30 PM',
-    location: 'Room C-101',
-    status: 'completed',
-    materials: 6,
-    attendees: 41,
-    description: 'Detailed study of male and female reproductive systems with diagrams.',
-    notesCount: 12,
-    questionsCount: 9,
-  },
-];
-
-const filterOptions = ['All', 'Today', 'Tomorrow', 'This Week', 'Completed'];
 
 export default function LecturesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [lectures, setLectures] = useState<any[]>([]);
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    loadLectures();
-  }, []);
+  // Calculate the actual status of a batch based on its scheduled time
+  const calculateBatchStatus = (
+    batch: any
+  ):
+    | 'upcoming'
+    | 'ongoing'
+    | 'completed'
+    | 'postponed'
+    | 'cancelled'
+    | 'not_held' => {
+    if (!batch) return 'upcoming';
 
-  const loadLectures = async () => {
+    const now = new Date();
+    const scheduledTime = new Date(batch.scheduled_at);
+
+    // If manually set to completed, postponed, cancelled, or not_held, respect that
+    if (
+      batch.status === 'completed' ||
+      batch.status === 'postponed' ||
+      batch.status === 'cancelled' ||
+      batch.status === 'not_held'
+    ) {
+      return batch.status;
+    }
+
+    // Calculate time difference
+    const timeDiff = now.getTime() - scheduledTime.getTime();
+    const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+    // If the lecture hasn't started yet (more than 15 minutes before)
+    if (hoursDiff < -0.25) {
+      return 'upcoming';
+    }
+
+    // If the lecture has started but not been marked as complete (within 4 hours of start time)
+    if (hoursDiff >= -0.25 && hoursDiff < 4) {
+      return 'ongoing';
+    }
+
+    // If it's been more than 4 hours and not marked complete, consider it not held
+    return 'not_held';
+  };
+
+  const loadLectures = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      if (isDemoMode()) {
-        // Use mock data in demo mode
-        setLectures(mockLectureData);
-      } else {
-        // Load from database
-        const data = await lecturesService.getLectures();
-        const formattedLectures = data.map((lecture: any) => ({
-          id: lecture.id,
-          subject: lecture.subjects?.name || 'Unknown Subject',
-          topic: lecture.topic,
-          teacher: lecture.teachers?.profiles?.name || 'Unknown Teacher',
-          date: lecture.scheduled_date,
-          time: `${lecture.start_time} - ${lecture.end_time}`,
-          location: lecture.location || 'TBD',
-          status: lecture.status,
-          materials: lecture.lecture_materials?.length || 0,
-          attendees: 0, // This would need to be calculated from attendance
-          description: lecture.description || '',
-          notesCount: 0, // This would need to be calculated
-          questionsCount: 0, // This would need to be calculated
-        }));
-        setLectures(formattedLectures);
+      if (!user?.id) {
+        setError('User not authenticated');
+        return;
       }
+
+      // Get enrolled courses first
+      const { data: enrollments, error: enrollError } = await supabase
+        .from('course_enrollments')
+        .select(
+          `
+          course:courses(
+            id,
+            name,
+            code
+          )
+        `
+        )
+        .eq('student_id', user.id)
+        .eq('status', 'active');
+
+      if (enrollError) {
+        throw new Error(`Failed to fetch enrollments: ${enrollError.message}`);
+      }
+
+      const enrolledCourseIds =
+        enrollments?.map((e: any) => e.course?.id).filter(Boolean) || [];
+      if (enrolledCourseIds.length === 0) {
+        setLectures([]);
+        setAvailableSubjects([]);
+        return;
+      }
+
+      // Get lectures for enrolled courses
+      const data = await lecturesManagementService.getAllLectures();
+      const enrolledLectures = data.filter((lecture) =>
+        enrolledCourseIds.includes(lecture.course_id)
+      );
+
+      // Transform the data to match the expected format
+      const formattedLectures = await Promise.all(
+        enrolledLectures.map(async (lecture: any) => {
+          // Get batches for this lecture
+          const batches = await lecturesManagementService.getLectureBatches(
+            lecture.id
+          );
+
+          // Find the next scheduled batch or most recent one
+          const nextBatch =
+            batches.find(
+              (batch) =>
+                batch.status === 'scheduled' || batch.status === 'completed'
+            ) || batches[0];
+
+          // Get attendance status for completed lectures
+          let attendanceStatus = null;
+          if (nextBatch && nextBatch.status === 'completed') {
+            try {
+              const attendanceRecords =
+                await lecturesManagementService.getAttendanceForBatch(
+                  nextBatch.id
+                );
+              const userAttendance = attendanceRecords.find(
+                (att) => att.student_id === user.id
+              );
+              attendanceStatus = userAttendance?.status || 'absent';
+            } catch (error) {
+              console.warn('Failed to fetch attendance:', error);
+              attendanceStatus = null;
+            }
+          }
+
+          return {
+            id: lecture.id,
+            subject: lecture.subject,
+            topic: lecture.topic || lecture.subject,
+            date: nextBatch?.scheduled_at
+              ? new Date(nextBatch.scheduled_at).toISOString().split('T')[0]
+              : new Date().toISOString().split('T')[0],
+            time: nextBatch?.scheduled_at
+              ? `${new Date(nextBatch.scheduled_at).toLocaleTimeString(
+                  'en-US',
+                  {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true,
+                  }
+                )}${
+                  nextBatch.end_time
+                    ? ` - ${new Date(nextBatch.end_time).toLocaleTimeString(
+                        'en-US',
+                        {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true,
+                        }
+                      )}`
+                    : ''
+                }`
+              : '',
+            status: nextBatch ? calculateBatchStatus(nextBatch) : 'upcoming',
+            attendees: nextBatch?.attendance_count || 0,
+            description: lecture.chapter
+              ? `Chapter: ${lecture.chapter}`
+              : 'Lecture content',
+            notesCount: batches.reduce(
+              (sum, batch) => sum + (batch.lecture_notes?.length || 0),
+              0
+            ),
+            batchId: nextBatch?.id,
+            courseId: lecture.course_id,
+            courseName: lecture.course?.name || 'Unknown Course',
+            attendanceStatus, // Add attendance status
+          };
+        })
+      );
+
+      setLectures(formattedLectures);
+
+      // Extract unique subjects for filtering
+      const subjects = [
+        ...new Set(formattedLectures.map((lecture) => lecture.subject)),
+      ];
+      setAvailableSubjects(subjects);
     } catch (err) {
       console.error('Error loading lectures:', err);
       setError('Failed to load lectures. Please try again.');
-      // Fallback to mock data on error
-      setLectures(mockLectureData);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadLectures();
+  }, [loadLectures]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadLectures();
+    setRefreshing(false);
+  }, [loadLectures]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'upcoming':
         return '#2563EB';
+      case 'ongoing':
+        return '#F59E0B';
       case 'scheduled':
-        return '#059669';
+        return '#2563EB';
       case 'completed':
+        return '#059669';
+      case 'postponed':
+        return '#F59E0B';
+      case 'cancelled':
+        return '#EF4444';
+      case 'not_held':
         return '#64748B';
       default:
         return '#64748B';
@@ -149,26 +253,95 @@ export default function LecturesScreen() {
     switch (status) {
       case 'upcoming':
         return '#EFF6FF';
+      case 'ongoing':
+        return '#FEF3C7';
       case 'scheduled':
-        return '#ECFDF5';
+        return '#EFF6FF';
       case 'completed':
+        return '#ECFDF5';
+      case 'postponed':
+        return '#FEF3C7';
+      case 'cancelled':
+        return '#FEF2F2';
+      case 'not_held':
         return '#F1F5F9';
       default:
         return '#F1F5F9';
     }
   };
 
-  const handleLecturePress = (lectureId: number) => {
-    router.push(`/(tabs)/lectures/${lectureId}`);
+  const getAttendanceColor = (status: string) => {
+    switch (status) {
+      case 'present':
+        return '#059669';
+      case 'late':
+        return '#F59E0B';
+      case 'absent':
+        return '#EF4444';
+      case 'excused':
+        return '#6B7280';
+      default:
+        return '#6B7280';
+    }
   };
 
-  const filteredLectures = lectures.filter(lecture => {
-    const matchesSearch = lecture.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lecture.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lecture.teacher.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSubject = selectedSubject === 'All' || lecture.subject === selectedSubject;
-    
-    return matchesSearch && matchesSubject;
+  const handleLecturePress = (lecture: any) => {
+    // Navigate to the lecture details page with the lecture ID and batch ID
+    router.push(`/(tabs)/lectures/${lecture.id}` as any);
+  };
+
+  const filteredLectures = lectures.filter((lecture) => {
+    const matchesSearch =
+      lecture.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lecture.subject.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSubject =
+      selectedSubject === 'All' || lecture.subject === selectedSubject;
+
+    // Date filtering
+    const lectureDate = new Date(lecture.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    let matchesFilter = true;
+    switch (selectedFilter) {
+      case 'Today':
+        lectureDate.setHours(0, 0, 0, 0);
+        matchesFilter = lectureDate.getTime() === today.getTime();
+        break;
+      case 'Tomorrow':
+        lectureDate.setHours(0, 0, 0, 0);
+        matchesFilter = lectureDate.getTime() === tomorrow.getTime();
+        break;
+      case 'This Week':
+        lectureDate.setHours(0, 0, 0, 0);
+        matchesFilter = lectureDate >= today && lectureDate <= nextWeek;
+        break;
+      case 'Upcoming':
+        matchesFilter = lecture.status === 'upcoming';
+        break;
+      case 'Ongoing':
+        matchesFilter = lecture.status === 'ongoing';
+        break;
+      case 'Scheduled':
+        matchesFilter = lecture.status === 'scheduled';
+        break;
+      case 'Completed':
+        matchesFilter = lecture.status === 'completed';
+        break;
+      case 'Postponed':
+        matchesFilter = lecture.status === 'postponed';
+        break;
+      default:
+        matchesFilter = true;
+    }
+
+    return matchesSearch && matchesSubject && matchesFilter;
   });
 
   if (loading) {
@@ -198,39 +371,57 @@ export default function LecturesScreen() {
         </View>
       )}
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#2563EB']}
+            tintColor="#2563EB"
+          />
+        }
+      >
         {/* Search Bar */}
         <View style={styles.searchSection}>
           <View style={styles.searchBar}>
             <Search size={20} color="#64748B" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search lectures, topics, or teachers..."
+              placeholder="Search lectures, topics, or subjects..."
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholderTextColor="#94A3B8"
             />
           </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <Filter size={20} color="#2563EB" />
+          <TouchableOpacity style={styles.filterButton} disabled={true}>
+            <Filter size={20} color="#94A3B8" />
           </TouchableOpacity>
         </View>
 
         {/* Filter Options */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
           <View style={styles.filterContainer}>
             {filterOptions.map((filter) => (
               <TouchableOpacity
                 key={filter}
                 style={[
                   styles.filterChip,
-                  selectedFilter === filter && styles.filterChipActive
+                  selectedFilter === filter && styles.filterChipActive,
                 ]}
-                onPress={() => setSelectedFilter(filter)}>
-                <Text style={[
-                  styles.filterText,
-                  selectedFilter === filter && styles.filterTextActive
-                ]}>
+                onPress={() => setSelectedFilter(filter)}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedFilter === filter && styles.filterTextActive,
+                  ]}
+                >
                   {filter}
                 </Text>
               </TouchableOpacity>
@@ -246,28 +437,34 @@ export default function LecturesScreen() {
               <TouchableOpacity
                 style={[
                   styles.subjectChip,
-                  selectedSubject === 'All' && styles.subjectChipActive
+                  selectedSubject === 'All' && styles.subjectChipActive,
                 ]}
-                onPress={() => setSelectedSubject('All')}>
-                <Text style={[
-                  styles.subjectText,
-                  selectedSubject === 'All' && styles.subjectTextActive
-                ]}>
+                onPress={() => setSelectedSubject('All')}
+              >
+                <Text
+                  style={[
+                    styles.subjectText,
+                    selectedSubject === 'All' && styles.subjectTextActive,
+                  ]}
+                >
                   All Subjects
                 </Text>
               </TouchableOpacity>
-              {hscSubjects.slice(0, 8).map((subject) => (
+              {availableSubjects.map((subject) => (
                 <TouchableOpacity
                   key={subject}
                   style={[
                     styles.subjectChip,
-                    selectedSubject === subject && styles.subjectChipActive
+                    selectedSubject === subject && styles.subjectChipActive,
                   ]}
-                  onPress={() => setSelectedSubject(subject)}>
-                  <Text style={[
-                    styles.subjectText,
-                    selectedSubject === subject && styles.subjectTextActive
-                  ]}>
+                  onPress={() => setSelectedSubject(subject)}
+                >
+                  <Text
+                    style={[
+                      styles.subjectText,
+                      selectedSubject === subject && styles.subjectTextActive,
+                    ]}
+                  >
                     {subject}
                   </Text>
                 </TouchableOpacity>
@@ -280,68 +477,87 @@ export default function LecturesScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Lectures</Text>
           {filteredLectures.map((lecture) => (
-            <TouchableOpacity 
-              key={lecture.id} 
+            <TouchableOpacity
+              key={lecture.id}
               style={styles.lectureCard}
-              onPress={() => handleLecturePress(lecture.id)}>
+              onPress={() => handleLecturePress(lecture)}
+            >
               <View style={styles.cardHeader}>
                 <View style={styles.subjectInfo}>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusBgColor(lecture.status) }
-                  ]}>
-                    <Text style={[
-                      styles.statusText,
-                      { color: getStatusColor(lecture.status) }
-                    ]}>
-                      {lecture.status.toUpperCase()}
-                    </Text>
-                  </View>
                   <Text style={styles.subjectName}>{lecture.subject}</Text>
                 </View>
                 <View style={styles.cardActions}>
-                  {lecture.status !== 'completed' && (
-                    <TouchableOpacity style={styles.actionButton}>
-                      <Play size={16} color="#2563EB" />
-                    </TouchableOpacity>
-                  )}
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusBgColor(lecture.status) },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: getStatusColor(lecture.status) },
+                      ]}
+                    >
+                      {lecture.status.toUpperCase()}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
               <Text style={styles.lectureTopic}>{lecture.topic}</Text>
-              <Text style={styles.teacherName}>by {lecture.teacher}</Text>
-              <Text style={styles.lectureDescription}>{lecture.description}</Text>
+              <Text style={styles.lectureDescription}>
+                {lecture.description}
+              </Text>
 
               <View style={styles.lectureDetails}>
-                <View style={styles.detailItem}>
-                  <Clock size={16} color="#64748B" />
-                  <Text style={styles.detailText}>{lecture.time}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <MapPin size={16} color="#64748B" />
-                  <Text style={styles.detailText}>{lecture.location}</Text>
-                </View>
+                {lecture.time && (
+                  <View style={styles.detailItem}>
+                    <Clock size={16} color="#64748B" />
+                    <Text style={styles.detailText}>{lecture.time}</Text>
+                  </View>
+                )}
+                {lecture.status === 'completed' && lecture.attendanceStatus && (
+                  <View style={styles.detailItem}>
+                    <View
+                      style={[
+                        styles.attendanceIndicator,
+                        {
+                          backgroundColor: getAttendanceColor(
+                            lecture.attendanceStatus
+                          ),
+                        },
+                      ]}
+                    >
+                      <Text style={styles.attendanceText}>
+                        {lecture.attendanceStatus.charAt(0).toUpperCase() +
+                          lecture.attendanceStatus.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
 
               <View style={styles.cardFooter}>
                 <View style={styles.statsContainer}>
                   <View style={styles.statItem}>
                     <FileText size={14} color="#64748B" />
-                    <Text style={styles.statText}>{lecture.notesCount} Notes</Text>
+                    <Text style={styles.statText}>
+                      {lecture.notesCount} Notes
+                    </Text>
                   </View>
                   <View style={styles.statItem}>
                     <Users size={14} color="#64748B" />
-                    <Text style={styles.statText}>{lecture.attendees} Students</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statText}>{lecture.questionsCount} Q&A</Text>
+                    <Text style={styles.statText}>
+                      {lecture.attendees} Students
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.lectureDate}>
                   {new Date(lecture.date).toLocaleDateString('en-IN', {
                     day: 'numeric',
                     month: 'short',
-                    year: 'numeric'
+                    year: 'numeric',
                   })}
                 </Text>
               </View>
@@ -444,7 +660,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
   },
   filterButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F1F5F9',
     borderRadius: 12,
     padding: 12,
     shadowColor: '#000',
@@ -625,6 +841,18 @@ const styles = StyleSheet.create({
   lectureDate: {
     fontSize: 14,
     color: '#1E293B',
+    fontFamily: 'Inter-SemiBold',
+  },
+  attendanceIndicator: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attendanceText: {
+    fontSize: 12,
+    color: '#FFFFFF',
     fontFamily: 'Inter-SemiBold',
   },
 });

@@ -107,6 +107,43 @@ export default function LecturesManagement() {
     console.log('Batch refresh requested');
   };
 
+  // Calculate the actual status of a batch based on its scheduled time
+  const calculateBatchStatus = (batch: LectureBatchWithDetails): 'upcoming' | 'ongoing' | 'completed' | 'postponed' | 'cancelled' | 'not_held' => {
+    const now = new Date();
+    const scheduledTime = new Date(batch.scheduled_at);
+    
+    // If manually set to completed, postponed, cancelled, or not_held, respect that
+    if (batch.status === 'completed' || batch.status === 'postponed' || batch.status === 'cancelled' || batch.status === 'not_held') {
+      return batch.status;
+    }
+    
+    // Calculate time difference
+    const timeDiff = now.getTime() - scheduledTime.getTime();
+    const hoursDiff = timeDiff / (1000 * 60 * 60);
+    
+    // If the lecture hasn't started yet (more than 15 minutes before)
+    if (hoursDiff < -0.25) {
+      return 'upcoming';
+    }
+    
+    // If the lecture has started but not been marked as complete (within 4 hours of start time)
+    if (hoursDiff >= -0.25 && hoursDiff < 4) {
+      return 'ongoing';
+    }
+    
+    // If it's been more than 4 hours and not marked complete, consider it not held
+    return 'not_held';
+  };
+
+  // Check if a batch can be marked as complete
+  const canMarkComplete = (batch: LectureBatchWithDetails): boolean => {
+    const now = new Date();
+    const scheduledTime = new Date(batch.scheduled_at);
+    
+    // Can only mark complete if the start time has passed (with 15 minutes buffer)
+    return now.getTime() >= (scheduledTime.getTime() - 15 * 60 * 1000);
+  };
+
   // Form state
   const [formData, setFormData] = useState({
     subject: '',
@@ -156,6 +193,10 @@ export default function LecturesManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'upcoming':
+        return '#2563EB';
+      case 'ongoing':
+        return '#F59E0B';
       case 'scheduled':
         return '#2563EB';
       case 'completed':
@@ -173,6 +214,10 @@ export default function LecturesManagement() {
 
   const getStatusBgColor = (status: string) => {
     switch (status) {
+      case 'upcoming':
+        return '#EFF6FF';
+      case 'ongoing':
+        return '#FEF3C7';
       case 'scheduled':
         return '#EFF6FF';
       case 'completed':
@@ -491,6 +536,8 @@ export default function LecturesManagement() {
   const BatchesModal = ({ lecture }: { lecture: LectureWithDetails }) => {
     const [batches, setBatches] = useState<LectureBatchWithDetails[]>([]);
     const [batchesLoading, setBatchesLoading] = useState(true);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [currentTime, setCurrentTime] = useState(new Date()); // Used to trigger re-renders for time-based status calculations
 
     const loadBatches = useCallback(async () => {
       try {
@@ -512,6 +559,15 @@ export default function LecturesManagement() {
         loadBatches();
       }
     }, [lecture, loadBatches]);
+
+    // Update current time every minute to refresh status calculations
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setCurrentTime(new Date());
+      }, 60000); // Update every minute
+
+      return () => clearInterval(interval);
+    }, []);
 
     const handleStatusUpdate = async (batchId: string, status: string) => {
       try {
@@ -633,7 +689,11 @@ export default function LecturesManagement() {
               No batches found for this lecture
             </Text>
           ) : (
-            batches.map((batch) => (
+            batches.map((batch) => {
+              const actualStatus = calculateBatchStatus(batch);
+              const canComplete = canMarkComplete(batch);
+              
+              return (
               <View key={batch.id} style={styles.batchCard}>
                 <View style={styles.batchHeader}>
                   <Text style={styles.batchDate}>
@@ -643,16 +703,16 @@ export default function LecturesManagement() {
                     <View
                       style={[
                         styles.statusBadge,
-                        { backgroundColor: getStatusBgColor(batch.status) },
+                        { backgroundColor: getStatusBgColor(actualStatus) },
                       ]}
                     >
                       <Text
                         style={[
                           styles.statusText,
-                          { color: getStatusColor(batch.status) },
+                          { color: getStatusColor(actualStatus) },
                         ]}
                       >
-                        {batch.status.toUpperCase()}
+                        {actualStatus.toUpperCase()}
                       </Text>
                     </View>
                     <View style={styles.batchActions}>
@@ -731,7 +791,7 @@ export default function LecturesManagement() {
                     <BookOpen size={14} color="#FFFFFF" />
                     <Text style={styles.notesButtonText}>Notes</Text>
                   </TouchableOpacity>
-                  {batch.status === 'scheduled' && (
+                  {(actualStatus === 'ongoing' || actualStatus === 'upcoming') && canComplete && (
                     <TouchableOpacity
                       style={styles.completeButton}
                       onPress={() => handleStatusUpdate(batch.id, 'completed')}
@@ -740,9 +800,19 @@ export default function LecturesManagement() {
                       <Text style={styles.completeButtonText}>Complete</Text>
                     </TouchableOpacity>
                   )}
+                  {!canComplete && actualStatus === 'upcoming' && (
+                    <TouchableOpacity
+                      style={[styles.completeButton, styles.disabledButton]}
+                      disabled={true}
+                    >
+                      <Clock size={14} color="#94A3B8" />
+                      <Text style={styles.disabledButtonText}>Not Started</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
-            ))
+              );
+            })
           )}
         </ScrollView>
       </View>
@@ -2215,6 +2285,16 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     color: '#FFFFFF',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  disabledButton: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  disabledButtonText: {
+    color: '#94A3B8',
     fontWeight: '500',
     marginLeft: 6,
   },

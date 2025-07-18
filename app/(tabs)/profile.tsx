@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -5,99 +6,217 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { supabase } from '../../lib/supabase';
+import { examManagementService } from '../../services/exam-management';
+import { lecturesManagementService } from '../../services/lectures-management';
 import {
   User,
   Settings,
   Bell,
   BookOpen,
   Award,
-  TrendingUp,
   Calendar,
   LogOut,
-  CreditCard as Edit3,
-  Mail,
-  Phone,
+  Target,
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
-
-const studentData = {
-  name: 'Arjun Sharma',
-  rollNumber: 'BS2027001',
-  class: 'HSC Science - Batch 2027',
-  email: 'arjun.sharma@brainstormers.edu',
-  phone: '+91 98765 43210',
-  joinDate: 'August 2024',
-  profilePicture: 'AS',
-};
-
-const academicStats = {
-  totalLectures: 156,
-  attendedLectures: 142,
-  assignmentsCompleted: 89,
-  totalAssignments: 95,
-  averageScore: 87.5,
-  rank: 5,
-  totalStudents: 120,
-};
-
-const recentActivity = [
-  {
-    id: 1,
-    type: 'exam',
-    title: 'Biology Unit Test',
-    score: '78/90',
-    date: '2 days ago',
-  },
-  {
-    id: 2,
-    type: 'assignment',
-    title: 'Chemistry Lab Report',
-    score: '92/100',
-    date: '5 days ago',
-  },
-  {
-    id: 3,
-    type: 'lecture',
-    title: 'Physics - Electromagnetic Induction',
-    status: 'Attended',
-    date: '1 week ago',
-  },
-  {
-    id: 4,
-    type: 'qna',
-    title: 'Asked question in Mathematics',
-    status: 'Answered',
-    date: '1 week ago',
-  },
-];
-
-const subjects = [
-  { name: 'Physics', score: 85, color: '#2563EB' },
-  { name: 'Chemistry', score: 92, color: '#059669' },
-  { name: 'Mathematics', score: 88, color: '#EA580C' },
-  { name: 'Biology', score: 84, color: '#7C3AED' },
-];
-
-const menuItems = [
-  { id: 1, title: 'Edit Profile', icon: Edit3, color: '#2563EB' },
-  { id: 2, title: 'Notifications', icon: Bell, color: '#EA580C' },
-  { id: 3, title: 'Settings', icon: Settings, color: '#64748B' },
-  { id: 4, title: 'Help & Support', icon: Mail, color: '#059669' },
-];
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const attendancePercentage = Math.round(
-    (academicStats.attendedLectures / academicStats.totalLectures) * 100
-  );
-  const assignmentPercentage = Math.round(
-    (academicStats.assignmentsCompleted / academicStats.totalAssignments) * 100
-  );
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [academicStats, setAcademicStats] = useState({
+    totalLectures: 0,
+    attendedLectures: 0,
+    totalExams: 0,
+    completedExams: 0,
+    averageScore: 0,
+    attendancePercentage: 0,
+    examPerformance: 0,
+  });
+  const [studentInfo, setStudentInfo] = useState({
+    full_name: '',
+    email: '',
+    roll: '',
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const loadStudentInfo = useCallback(async () => {
+    try {
+      if (!user?.id) return;
+
+      // Get profile information
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
+
+      // Get student roll number
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .select('roll')
+        .eq('id', user.id)
+        .single();
+
+      if (studentError) {
+        console.error('Error fetching student roll:', studentError);
+      }
+
+      setStudentInfo({
+        full_name: profileData?.full_name || '',
+        email: user.email || '',
+        roll: studentData?.roll || '',
+      });
+    } catch (err) {
+      console.error('Error loading student info:', err);
+    }
+  }, [user?.id, user?.email]);
+
+  const loadAcademicData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!user?.id) {
+        setError('User not authenticated');
+        return;
+      }
+
+      // Get enrolled courses
+      const { data: enrollments, error: enrollError } = await supabase
+        .from('course_enrollments')
+        .select('course_id')
+        .eq('student_id', user.id)
+        .eq('status', 'active');
+
+      if (enrollError) {
+        throw new Error(`Failed to fetch enrollments: ${enrollError.message}`);
+      }
+
+      const courseIds = enrollments?.map((e) => e.course_id) || [];
+
+      if (courseIds.length === 0) {
+        setAcademicStats({
+          totalLectures: 0,
+          attendedLectures: 0,
+          totalExams: 0,
+          completedExams: 0,
+          averageScore: 0,
+          attendancePercentage: 0,
+          examPerformance: 0,
+        });
+        return;
+      }
+
+      // Get lecture stats
+      const lectures = await lecturesManagementService.getAllLectures();
+      const enrolledLectures = lectures.filter((lecture) =>
+        courseIds.includes(lecture.course_id)
+      );
+
+      // Get attendance data
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendances')
+        .select('status, batch_id, lecture_batches(lecture_id)')
+        .eq('student_id', user.id);
+
+      if (attendanceError) {
+        console.error('Error fetching attendance:', attendanceError);
+      }
+
+      const attendedLectures =
+        attendanceData?.filter(
+          (att) => att.status === 'present' || att.status === 'late'
+        ).length || 0;
+
+      // Get exam stats
+      const exams = await examManagementService.getExams();
+      const enrolledExams = exams.filter((exam) =>
+        courseIds.includes(exam.course_id)
+      );
+
+      // Get exam attendance data
+      const { data: examAttendanceData, error: examAttendanceError } =
+        await supabase
+          .from('exam_attendances')
+          .select('status, score, batch_id, exam_batches(exam_id)')
+          .eq('student_id', user.id);
+
+      if (examAttendanceError) {
+        console.error('Error fetching exam attendance:', examAttendanceError);
+      }
+
+      const completedExams =
+        examAttendanceData?.filter(
+          (att) => att.status === 'present' || att.status === 'late'
+        ).length || 0;
+
+      const examMarks =
+        examAttendanceData
+          ?.filter((att) => att.score !== null)
+          .map((att) => att.score) || [];
+
+      const averageScore =
+        examMarks.length > 0
+          ? examMarks.reduce((sum, mark) => sum + mark, 0) / examMarks.length
+          : 0;
+
+      const attendancePercentage =
+        enrolledLectures.length > 0
+          ? Math.round((attendedLectures / enrolledLectures.length) * 100)
+          : 0;
+
+      const examPerformance =
+        enrolledExams.length > 0
+          ? Math.round((completedExams / enrolledExams.length) * 100)
+          : 0;
+
+      setAcademicStats({
+        totalLectures: enrolledLectures.length,
+        attendedLectures,
+        totalExams: enrolledExams.length,
+        completedExams,
+        averageScore: Math.round(averageScore),
+        attendancePercentage,
+        examPerformance,
+      });
+    } catch (err) {
+      console.error('Error loading academic data:', err);
+      setError('Failed to load academic data');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadStudentInfo();
+      loadAcademicData();
+    }
+  }, [user?.id, loadStudentInfo, loadAcademicData]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadStudentInfo(), loadAcademicData()]);
+    setRefreshing(false);
+  };
+
+  const menuItems = [
+    { id: 1, title: 'Edit Profile', icon: User, color: '#2563EB' },
+    { id: 2, title: 'Notifications', icon: Bell, color: '#EA580C' },
+    { id: 3, title: 'Settings', icon: Settings, color: '#64748B' },
+  ];
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -110,10 +229,8 @@ export default function ProfileScreen() {
             console.log('Student logout initiated');
             await logout();
             console.log('Student logout completed');
-            // Navigation will be handled automatically by the auth context
           } catch (error) {
             console.error('Logout error:', error);
-            // Force navigation even if logout fails
             router.replace('/login-selection');
           }
         },
@@ -121,47 +238,79 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleMenuItemPress = (item: any) => {
+    switch (item.id) {
+      case 1: // Edit Profile
+        router.push('/EditProfile');
+        break;
+      case 2: // Notifications
+        // Navigate to notifications
+        console.log('Notifications pressed');
+        break;
+      case 3: // Settings
+        // Navigate to settings
+        console.log('Settings pressed');
+        break;
+      default:
+        break;
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Profile</Text>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         showsVerticalScrollIndicator={false}
       >
         {/* Profile Header */}
-        <LinearGradient
-          colors={['#2563EB', '#1D4ED8']}
-          style={styles.profileHeader}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.profileInfo}>
-            <View style={styles.profilePicture}>
-              <Text style={styles.profileInitials}>
-                {user?.name
-                  ?.split(' ')
-                  .map((n) => n[0])
-                  .join('') || 'U'}
-              </Text>
-            </View>
-            <View style={styles.studentDetails}>
-              <Text style={styles.studentName}>{user?.name || 'User'}</Text>
-              <Text style={styles.rollNumber}>
-                Roll No: {user?.rollNumber || 'N/A'}
-              </Text>
-              <Text style={styles.className}>{user?.class || 'N/A'}</Text>
-            </View>
-          </View>
-          <View style={styles.contactInfo}>
-            <View style={styles.contactItem}>
-              <Mail size={14} color="#BFDBFE" />
-              <Text style={styles.contactText}>{user?.email || 'N/A'}</Text>
-            </View>
-            <View style={styles.contactItem}>
-              <Phone size={14} color="#BFDBFE" />
-              <Text style={styles.contactText}>{user?.phone || 'N/A'}</Text>
+        <View style={styles.profileSection}>
+          <View style={styles.profileCard}>
+            <View style={styles.profileInfo}>
+              <View style={styles.profilePicture}>
+                <Text style={styles.profileInitials}>
+                  {studentInfo.full_name
+                    ? studentInfo.full_name
+                        .split(' ')
+                        .map((n: string) => n.charAt(0))
+                        .join('')
+                        .toUpperCase()
+                    : user?.email?.split('@')[0].charAt(0).toUpperCase() || 'U'}
+                </Text>
+              </View>
+              <View style={styles.studentDetails}>
+                <Text style={styles.studentName}>
+                  {studentInfo.full_name ||
+                    user?.email?.split('@')[0] ||
+                    'User'}
+                </Text>
+                <Text style={styles.studentEmail}>
+                  {studentInfo.email || user?.email || 'N/A'}
+                </Text>
+                <Text style={styles.studentRole}>
+                  {studentInfo.roll ? `Roll: ${studentInfo.roll}` : 'Student'}
+                </Text>
+              </View>
             </View>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Academic Overview */}
         <View style={styles.section}>
@@ -171,7 +320,9 @@ export default function ProfileScreen() {
               <View style={styles.statIcon}>
                 <BookOpen size={24} color="#2563EB" />
               </View>
-              <Text style={styles.statValue}>{attendancePercentage}%</Text>
+              <Text style={styles.statValue}>
+                {academicStats.attendancePercentage}%
+              </Text>
               <Text style={styles.statLabel}>Attendance</Text>
               <Text style={styles.statDetail}>
                 {academicStats.attendedLectures}/{academicStats.totalLectures}{' '}
@@ -181,13 +332,15 @@ export default function ProfileScreen() {
 
             <View style={styles.statCard}>
               <View style={styles.statIcon}>
-                <Award size={24} color="#059669" />
+                <Target size={24} color="#059669" />
               </View>
-              <Text style={styles.statValue}>{assignmentPercentage}%</Text>
-              <Text style={styles.statLabel}>Assignments</Text>
+              <Text style={styles.statValue}>
+                {academicStats.examPerformance}%
+              </Text>
+              <Text style={styles.statLabel}>Exam Performance</Text>
               <Text style={styles.statDetail}>
-                {academicStats.assignmentsCompleted}/
-                {academicStats.totalAssignments} completed
+                {academicStats.completedExams}/{academicStats.totalExams}{' '}
+                completed
               </Text>
             </View>
           </View>
@@ -195,7 +348,7 @@ export default function ProfileScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <View style={styles.statIcon}>
-                <TrendingUp size={24} color="#EA580C" />
+                <Award size={24} color="#EA580C" />
               </View>
               <Text style={styles.statValue}>
                 {academicStats.averageScore}%
@@ -206,111 +359,58 @@ export default function ProfileScreen() {
 
             <View style={styles.statCard}>
               <View style={styles.statIcon}>
-                <Award size={24} color="#7C3AED" />
+                <Calendar size={24} color="#7C3AED" />
               </View>
-              <Text style={styles.statValue}>#{academicStats.rank}</Text>
-              <Text style={styles.statLabel}>Class Rank</Text>
-              <Text style={styles.statDetail}>
-                Out of {academicStats.totalStudents} students
+              <Text style={styles.statValue}>
+                {academicStats.totalLectures + academicStats.totalExams}
               </Text>
+              <Text style={styles.statLabel}>Total Activities</Text>
+              <Text style={styles.statDetail}>Lectures & Exams</Text>
             </View>
           </View>
-        </View>
-
-        {/* Subject Performance */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subject Performance</Text>
-          <View style={styles.subjectsContainer}>
-            {subjects.map((subject, index) => (
-              <View key={index} style={styles.subjectCard}>
-                <View style={styles.subjectHeader}>
-                  <Text style={styles.subjectName}>{subject.name}</Text>
-                  <Text style={[styles.subjectScore, { color: subject.color }]}>
-                    {subject.score}%
-                  </Text>
-                </View>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${subject.score}%`,
-                        backgroundColor: subject.color,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Recent Activity */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          {recentActivity.map((activity) => (
-            <TouchableOpacity key={activity.id} style={styles.activityCard}>
-              <View style={styles.activityIcon}>
-                {activity.type === 'exam' && (
-                  <Award size={20} color="#EA580C" />
-                )}
-                {activity.type === 'assignment' && (
-                  <BookOpen size={20} color="#059669" />
-                )}
-                {activity.type === 'lecture' && (
-                  <Calendar size={20} color="#2563EB" />
-                )}
-                {activity.type === 'qna' && <User size={20} color="#7C3AED" />}
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>{activity.title}</Text>
-                <Text style={styles.activityDetail}>
-                  {activity.score || activity.status} • {activity.date}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {/* Menu Options */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
-          {menuItems.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.menuItem}>
-              <View
-                style={[
-                  styles.menuIcon,
-                  { backgroundColor: `${item.color}15` },
-                ]}
+          <View style={styles.menuList}>
+            {menuItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.menuItem}
+                onPress={() => handleMenuItemPress(item)}
               >
-                <item.icon size={20} color={item.color} />
+                <View
+                  style={[
+                    styles.menuIcon,
+                    { backgroundColor: `${item.color}15` },
+                  ]}
+                >
+                  <item.icon size={20} color={item.color} />
+                </View>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.menuItem, styles.logoutItem]}
+              onPress={handleLogout}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#FEF2F2' }]}>
+                <LogOut size={20} color="#EF4444" />
               </View>
-              <Text style={styles.menuTitle}>{item.title}</Text>
+              <Text style={[styles.menuTitle, { color: '#EF4444' }]}>
+                Logout
+              </Text>
             </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity
-            style={[styles.menuItem, styles.logoutItem]}
-            onPress={handleLogout}
-          >
-            <View style={[styles.menuIcon, { backgroundColor: '#FEF2F2' }]}>
-              <LogOut size={20} color="#EF4444" />
-            </View>
-            <Text style={[styles.menuTitle, { color: '#EF4444' }]}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* BrainStormers Info */}
-        <View style={styles.section}>
-          <View style={styles.brandingFooter}>
-            <Text style={styles.brandingText}>
-              Member since {studentData.joinDate}
-            </Text>
-            <Text style={styles.brandingSubtext}>
-              BrainStormers - Excellence in Education
-            </Text>
           </View>
         </View>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -321,76 +421,82 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
   scrollView: {
     flex: 1,
   },
-  profileHeader: {
-    padding: 24,
-    paddingTop: 40,
+  profileSection: {
+    padding: 20,
+  },
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   profileInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
   },
   profilePicture: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
   profileInitials: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
   },
   studentDetails: {
     flex: 1,
   },
   studentName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
-    marginBottom: 4,
-  },
-  rollNumber: {
-    fontSize: 16,
-    color: '#BFDBFE',
-    fontFamily: 'Inter-Medium',
-    marginBottom: 2,
-  },
-  className: {
-    fontSize: 14,
-    color: '#BFDBFE',
-    fontFamily: 'Inter-Regular',
-  },
-  contactInfo: {
-    gap: 8,
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  contactText: {
-    fontSize: 14,
-    color: '#BFDBFE',
-    fontFamily: 'Inter-Regular',
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginTop: 24,
-  },
-  sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
+    marginBottom: 4,
+  },
+  studentEmail: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  studentRole: {
+    fontSize: 14,
+    color: '#2563EB',
+    fontWeight: '500',
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
     marginBottom: 16,
   },
   statsGrid: {
@@ -401,14 +507,14 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   statIcon: {
     width: 48,
@@ -420,101 +526,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#64748B',
-    fontFamily: 'Inter-SemiBold',
     marginBottom: 4,
   },
   statDetail: {
     fontSize: 12,
     color: '#94A3B8',
-    fontFamily: 'Inter-Regular',
     textAlign: 'center',
   },
-  subjectsContainer: {
-    gap: 12,
-  },
-  subjectCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  subjectHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  subjectName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-  },
-  subjectScore: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'Inter-Bold',
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  activityCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  activityContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  activityTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 4,
-  },
-  activityDetail: {
-    fontSize: 14,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
+  menuList: {
+    gap: 8,
   },
   menuItem: {
     flexDirection: 'row',
@@ -522,12 +551,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   logoutItem: {
     marginTop: 8,
@@ -544,30 +572,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#1E293B',
-    fontFamily: 'Inter-Medium',
   },
-  brandingFooter: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 24,
   },
-  brandingText: {
+  loadingText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 4,
-  },
-  brandingSubtext: {
-    fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    marginTop: 12,
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    margin: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    textAlign: 'center',
   },
 });

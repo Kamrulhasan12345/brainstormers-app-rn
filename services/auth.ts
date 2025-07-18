@@ -77,6 +77,20 @@ class AuthService {
   }
 
   private async fetchUserProfile(userId: string): Promise<User> {
+    // First get the auth user for email
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !authUser) {
+      console.error('Error fetching auth user:', authError);
+      throw new Error('Failed to fetch auth user');
+    }
+
+    console.log('Auth user email:', authUser.email);
+    console.log('Auth user id:', authUser.id);
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -88,12 +102,18 @@ class AuthService {
       throw new Error('Failed to fetch user profile');
     }
 
-    return {
+    console.log('Profile data:', data);
+
+    const user = {
       id: data.id,
+      email: authUser.email!, // Include email from auth user
       full_name: data.full_name,
       role: data.role,
       created_at: data.created_at,
     };
+
+    console.log('Final user object:', user);
+    return user;
   }
 
   async logout(): Promise<void> {

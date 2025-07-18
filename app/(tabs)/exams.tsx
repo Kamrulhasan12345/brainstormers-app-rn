@@ -71,19 +71,45 @@ export default function ExamsScreen() {
             let examTime = 'TBD';
             if (firstBatch?.scheduled_start) {
               const startDateTime = new Date(firstBatch.scheduled_start);
-              examDate = startDateTime.toISOString().split('T')[0];
+
+              // Format date in a more readable way
+              const today = new Date();
+              const tomorrow = new Date(today);
+              tomorrow.setDate(today.getDate() + 1);
+              const yesterday = new Date(today);
+              yesterday.setDate(today.getDate() - 1);
+
+              if (startDateTime.toDateString() === today.toDateString()) {
+                examDate = 'Today';
+              } else if (
+                startDateTime.toDateString() === tomorrow.toDateString()
+              ) {
+                examDate = 'Tomorrow';
+              } else if (
+                startDateTime.toDateString() === yesterday.toDateString()
+              ) {
+                examDate = 'Yesterday';
+              } else {
+                examDate = startDateTime.toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                });
+              }
+
+              // Format time with AM/PM for better readability
               examTime = startDateTime.toLocaleTimeString('en-US', {
-                hour: '2-digit',
+                hour: 'numeric',
                 minute: '2-digit',
-                hour12: false,
+                hour12: true,
               });
 
               if (firstBatch.scheduled_end) {
                 const endDateTime = new Date(firstBatch.scheduled_end);
                 examTime += ` - ${endDateTime.toLocaleTimeString('en-US', {
-                  hour: '2-digit',
+                  hour: 'numeric',
                   minute: '2-digit',
-                  hour12: false,
+                  hour12: true,
                 })}`;
               }
             }
@@ -91,18 +117,38 @@ export default function ExamsScreen() {
             // Determine exam status
             let status = 'scheduled';
             const now = new Date();
+
             if (firstBatch?.scheduled_start) {
               const startTime = new Date(firstBatch.scheduled_start);
-              const endTime = firstBatch.scheduled_end
-                ? new Date(firstBatch.scheduled_end)
-                : startTime;
 
-              if (now > endTime) {
+              // First check the batch status from database
+              if (firstBatch.status === 'completed') {
                 status = 'completed';
-              } else if (now < startTime) {
-                status = 'upcoming';
+              } else if (firstBatch.status === 'cancelled') {
+                status = 'cancelled';
+              } else if (firstBatch.status === 'postponed') {
+                status = 'postponed';
               } else {
-                status = 'ongoing';
+                // If batch is scheduled, determine status based on time
+                if (firstBatch.scheduled_end) {
+                  const endTime = new Date(firstBatch.scheduled_end);
+
+                  if (now > endTime) {
+                    status = 'completed';
+                  } else if (now >= startTime && now <= endTime) {
+                    status = 'ongoing';
+                  } else if (now < startTime) {
+                    status = 'upcoming';
+                  }
+                } else {
+                  // If no end time, only mark as upcoming if before start time
+                  if (now < startTime) {
+                    status = 'upcoming';
+                  } else {
+                    // If no end time and past start time, keep it as scheduled
+                    status = 'scheduled';
+                  }
+                }
               }
             }
 
@@ -163,6 +209,10 @@ export default function ExamsScreen() {
         return '#EA580C';
       case 'completed':
         return '#059669';
+      case 'cancelled':
+        return '#EF4444';
+      case 'postponed':
+        return '#F59E0B';
       default:
         return '#64748B';
     }
@@ -176,6 +226,10 @@ export default function ExamsScreen() {
         return 'Ongoing';
       case 'completed':
         return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'postponed':
+        return 'Postponed';
       default:
         return 'Scheduled';
     }
@@ -247,6 +301,54 @@ export default function ExamsScreen() {
   const handleExamPress = (exam: any) => {
     router.push(`/exams/${exam.id}`);
   };
+
+  // Temporary fix function - you can call this to update the exam batch dates
+  const fixExamDate = async (
+    examId: string,
+    newDate: string,
+    startTime: string,
+    endTime: string
+  ) => {
+    try {
+      // Find the exam and its batch
+      const exam = exams.find((e) => e.id === examId);
+      if (!exam || !exam.nextBatch) {
+        console.error('Exam or batch not found');
+        return;
+      }
+
+      const batchId = exam.nextBatch.id;
+
+      // Create new datetime strings
+      const startDateTime = `${newDate}T${startTime}:00.000Z`;
+      const endDateTime = `${newDate}T${endTime}:00.000Z`;
+
+      console.log(
+        `Updating batch ${batchId} to: ${startDateTime} - ${endDateTime}`
+      );
+
+      await examManagementService.updateExamBatch(batchId, {
+        scheduled_start: startDateTime,
+        scheduled_end: endDateTime,
+      });
+
+      console.log('Batch updated successfully');
+
+      // Refresh the exams list
+      await loadExams();
+    } catch (error) {
+      console.error('Error updating exam batch:', error);
+    }
+  };
+
+  // Example usage (you can call this from the console or add a button):
+  // fixExamDate('947469f2-f925-4f4b-9eed-a95384c7d4f1', '2025-07-18', '14:00', '17:00');
+  // This would set the exam to July 18th, 2025 from 2:00 PM to 5:00 PM UTC
+
+  // Make the function available globally for debugging
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    (global as any).fixExamDate = fixExamDate;
+  }
 
   const renderSearchBar = () => {
     return (
@@ -346,52 +448,56 @@ export default function ExamsScreen() {
     );
   };
 
-  const renderExamCard = (exam: any) => (
-    <TouchableOpacity
-      key={exam.id}
-      style={styles.examCard}
-      onPress={() => handleExamPress(exam)}
-    >
-      <View style={styles.examHeader}>
-        <Text style={styles.examName}>{exam.name}</Text>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(exam.status) },
-          ]}
-        >
-          <Text style={styles.statusText}>{getStatusText(exam.status)}</Text>
+  const renderExamCard = (exam: any) => {
+    return (
+      <TouchableOpacity
+        key={exam.id}
+        style={styles.examCard}
+        onPress={() => handleExamPress(exam)}
+      >
+        <View style={styles.examHeader}>
+          <Text style={styles.examName}>{exam.name}</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: getStatusColor(exam.status) },
+            ]}
+          >
+            <Text style={styles.statusText}>{getStatusText(exam.status)}</Text>
+          </View>
         </View>
-      </View>
 
-      <Text style={styles.examSubject}>{exam.subject}</Text>
-      {exam.topic && <Text style={styles.examTopic}>{exam.topic}</Text>}
+        <Text style={styles.examSubject}>{exam.subject}</Text>
+        {exam.topic && <Text style={styles.examTopic}>{exam.topic}</Text>}
 
-      <View style={styles.examDetails}>
-        <View style={styles.detailRow}>
-          <Calendar size={16} color="#64748B" />
-          <Text style={styles.detailText}>{exam.date}</Text>
+        <View style={styles.examDetails}>
+          <View style={styles.detailRow}>
+            <Calendar size={16} color="#64748B" />
+            <Text style={styles.detailText}>{exam.date}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Clock size={16} color="#64748B" />
+            <Text style={styles.detailText}>{exam.time}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Target size={16} color="#64748B" />
+            <Text style={styles.detailText}>{exam.totalMarks} marks</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Users size={16} color="#64748B" />
+            <Text style={styles.detailText}>{exam.duration}</Text>
+          </View>
         </View>
-        <View style={styles.detailRow}>
-          <Clock size={16} color="#64748B" />
-          <Text style={styles.detailText}>{exam.time}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Target size={16} color="#64748B" />
-          <Text style={styles.detailText}>{exam.totalMarks} marks</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Users size={16} color="#64748B" />
-          <Text style={styles.detailText}>{exam.duration}</Text>
-        </View>
-      </View>
 
-      <View style={styles.examFooter}>
-        <Text style={styles.courseText}>{exam.course?.name || 'General'}</Text>
-        <ChevronRight size={20} color="#64748B" />
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.examFooter}>
+          <Text style={styles.courseText}>
+            {exam.course?.name || 'General'}
+          </Text>
+          <ChevronRight size={20} color="#64748B" />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (

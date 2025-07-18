@@ -1,128 +1,659 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, Clock, BookOpen, Calendar, TrendingUp, Star } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Clock,
+  BookOpen,
+  FileText,
+  User,
+  Bell,
+  TrendingUp,
+  ChevronRight,
+} from 'lucide-react-native';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 
-const upcomingLectures = [
-  { id: 1, subject: 'Physics', topic: 'Electromagnetic Induction', time: '10:00 AM', date: 'Today' },
-  { id: 2, subject: 'Chemistry', topic: 'Organic Compounds', time: '2:00 PM', date: 'Today' },
-  { id: 3, subject: 'Mathematics', topic: 'Calculus - Derivatives', time: '9:00 AM', date: 'Tomorrow' },
-];
+interface LectureBatch {
+  id: string;
+  lecture_id: string;
+  scheduled_at: string;
+  status: string;
+  notes: string | null;
+  end_time: string | null;
+  lecture: {
+    id: string;
+    subject: string;
+    topic: string;
+    chapter: string;
+    course: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  };
+}
 
-const recentNotifications = [
-  { id: 1, title: 'Physics Test Tomorrow', message: 'Electromagnetic waves chapter test at 11 AM', time: '2h ago', type: 'exam' },
-  { id: 2, title: 'New Study Material', message: 'Chemistry notes uploaded for Organic compounds', time: '4h ago', type: 'material' },
-];
+interface ExamBatch {
+  id: string;
+  exam_id: string;
+  scheduled_start: string;
+  scheduled_end: string | null;
+  status: string;
+  notes: string | null;
+  exam: {
+    id: string;
+    name: string;
+    subject: string;
+    topic: string;
+    chapter: string;
+    total_marks: number;
+    course: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  };
+}
 
-const todayStats = {
-  lecturesAttended: 3,
-  totalLectures: 4,
-  assignmentsCompleted: 2,
-  totalAssignments: 3,
-};
+interface TodayStats {
+  lecturesCount: number;
+  examsCount: number;
+  completedLectures: number;
+  completedExams: number;
+}
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [todayStats, setTodayStats] = useState<TodayStats>({
+    lecturesCount: 0,
+    examsCount: 0,
+    completedLectures: 0,
+    completedExams: 0,
+  });
+  const [upcomingLectures, setUpcomingLectures] = useState<LectureBatch[]>([]);
+  const [upcomingExams, setUpcomingExams] = useState<ExamBatch[]>([]);
+
+  const fetchTodayStats = useCallback(async () => {
+    const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    ).toISOString();
+    const todayEnd = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1
+    ).toISOString();
+
+    try {
+      if (!user?.id) {
+        console.error('User ID not available');
+        return;
+      }
+
+      // Get today's lecture batches
+      const { data: lectureBatches, error: lectureError } = await supabase
+        .from('lecture_batches')
+        .select('id, status, scheduled_at')
+        .gte('scheduled_at', todayStart)
+        .lt('scheduled_at', todayEnd);
+
+      if (lectureError) throw lectureError;
+
+      // Get today's exam batches
+      const { data: examBatches, error: examError } = await supabase
+        .from('exam_batches')
+        .select('id, status, scheduled_start')
+        .gte('scheduled_start', todayStart)
+        .lt('scheduled_start', todayEnd);
+
+      if (examError) throw examError;
+
+      // Get student's attendance records for today's lecture batches
+      let completedLectures = 0;
+      if (lectureBatches && lectureBatches.length > 0) {
+        const lectureBatchIds = lectureBatches.map((batch) => batch.id);
+        const { data: lectureAttendances, error: lectureAttendanceError } =
+          await supabase
+            .from('attendances')
+            .select('batch_id, status')
+            .eq('student_id', user.id)
+            .in('batch_id', lectureBatchIds)
+            .in('status', ['present', 'late']); // Count present and late as attended
+
+        if (lectureAttendanceError) throw lectureAttendanceError;
+        completedLectures = lectureAttendances?.length || 0;
+      }
+
+      // Get student's attendance records for today's exam batches
+      let completedExams = 0;
+      if (examBatches && examBatches.length > 0) {
+        const examBatchIds = examBatches.map((batch) => batch.id);
+        const { data: examAttendances, error: examAttendanceError } =
+          await supabase
+            .from('exam_attendances')
+            .select('batch_id, status')
+            .eq('student_id', user.id)
+            .in('batch_id', examBatchIds)
+            .in('status', ['present', 'late']); // Count present and late as attended
+
+        if (examAttendanceError) throw examAttendanceError;
+        completedExams = examAttendances?.length || 0;
+      }
+
+      console.log('Today Stats:', {
+        lecturesCount: lectureBatches?.length || 0,
+        examsCount: examBatches?.length || 0,
+        completedLectures,
+        completedExams,
+      });
+
+      setTodayStats({
+        lecturesCount: lectureBatches?.length || 0,
+        examsCount: examBatches?.length || 0,
+        completedLectures,
+        completedExams,
+      });
+    } catch (error) {
+      console.error('Error fetching today stats:', error);
+    }
+  }, [user]);
+
+  const fetchUpcomingLectures = useCallback(async () => {
+    try {
+      if (!user?.id) {
+        console.error('User ID not available');
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const nextWeek = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      // First, get all upcoming lecture batches
+      const { data: allBatches, error: batchError } = await supabase
+        .from('lecture_batches')
+        .select(
+          `
+          id,
+          lecture_id,
+          scheduled_at,
+          status,
+          notes,
+          end_time,
+          lecture:lectures(
+            id,
+            subject,
+            topic,
+            chapter,
+            course:courses(
+              id,
+              name,
+              code
+            )
+          )
+        `
+        )
+        .gte('scheduled_at', now)
+        .lte('scheduled_at', nextWeek)
+        .eq('status', 'scheduled')
+        .order('scheduled_at', { ascending: true });
+
+      if (batchError) throw batchError;
+
+      if (!allBatches || allBatches.length === 0) {
+        setUpcomingLectures([]);
+        return;
+      }
+
+      // Get student's attendance records for these lectures (from any batch)
+      const { data: attendances, error: attendanceError } = await supabase
+        .from('attendances')
+        .select(
+          `
+          batch_id,
+          status,
+          lecture_batches!inner(lecture_id)
+        `
+        )
+        .eq('student_id', user.id)
+        .in('status', ['present', 'late']); // Only count present/late as attended
+
+      if (attendanceError) throw attendanceError;
+
+      // Extract lecture IDs that the student has already attended
+      const attendedLectureIds = new Set(
+        attendances?.map((att) => (att as any).lecture_batches.lecture_id) || []
+      );
+
+      console.log('Attended lecture IDs:', Array.from(attendedLectureIds));
+
+      // Filter out lectures that the student has already attended
+      const filteredBatches = allBatches.filter(
+        (batch) => !attendedLectureIds.has(batch.lecture_id)
+      );
+
+      console.log(
+        'Filtered batches count:',
+        filteredBatches.length,
+        'from',
+        allBatches.length
+      );
+
+      // Group by lecture_id and take only the earliest batch for each lecture
+      const lectureMap = new Map();
+      filteredBatches.forEach((batch) => {
+        if (
+          !lectureMap.has(batch.lecture_id) ||
+          new Date(batch.scheduled_at) <
+            new Date(lectureMap.get(batch.lecture_id).scheduled_at)
+        ) {
+          lectureMap.set(batch.lecture_id, batch);
+        }
+      });
+
+      // Convert back to array and limit to 5
+      const uniqueLectures = Array.from(lectureMap.values())
+        .sort(
+          (a, b) =>
+            new Date(a.scheduled_at).getTime() -
+            new Date(b.scheduled_at).getTime()
+        )
+        .slice(0, 5);
+
+      setUpcomingLectures((uniqueLectures as unknown as LectureBatch[]) || []);
+    } catch (error) {
+      console.error('Error fetching upcoming lectures:', error);
+    }
+  }, [user]);
+
+  const fetchUpcomingExams = useCallback(async () => {
+    try {
+      if (!user?.id) {
+        console.error('User ID not available');
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const nextWeek = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      // First, get all upcoming exam batches
+      const { data: allBatches, error: batchError } = await supabase
+        .from('exam_batches')
+        .select(
+          `
+          id,
+          exam_id,
+          scheduled_start,
+          scheduled_end,
+          status,
+          notes,
+          exam:exams(
+            id,
+            name,
+            subject,
+            topic,
+            chapter,
+            total_marks,
+            course:courses(
+              id,
+              name,
+              code
+            )
+          )
+        `
+        )
+        .gte('scheduled_start', now)
+        .lte('scheduled_start', nextWeek)
+        .eq('status', 'scheduled')
+        .order('scheduled_start', { ascending: true });
+
+      if (batchError) throw batchError;
+
+      if (!allBatches || allBatches.length === 0) {
+        setUpcomingExams([]);
+        return;
+      }
+
+      // Get student's attendance records for these exams (from any batch)
+      const { data: attendances, error: attendanceError } = await supabase
+        .from('exam_attendances')
+        .select(
+          `
+          batch_id,
+          status,
+          exam_batches!inner(exam_id)
+        `
+        )
+        .eq('student_id', user.id)
+        .in('status', ['present', 'late']); // Only count present/late as attended
+
+      if (attendanceError) throw attendanceError;
+
+      // Extract exam IDs that the student has already attended
+      const attendedExamIds = new Set(
+        attendances?.map((att) => (att as any).exam_batches.exam_id) || []
+      );
+
+      console.log('Attended exam IDs:', Array.from(attendedExamIds));
+
+      // Filter out exams that the student has already attended
+      const filteredBatches = allBatches.filter(
+        (batch) => !attendedExamIds.has(batch.exam_id)
+      );
+
+      console.log(
+        'Filtered exam batches count:',
+        filteredBatches.length,
+        'from',
+        allBatches.length
+      );
+
+      // Group by exam_id and take only the earliest batch for each exam
+      const examMap = new Map();
+      filteredBatches.forEach((batch) => {
+        if (
+          !examMap.has(batch.exam_id) ||
+          new Date(batch.scheduled_start) <
+            new Date(examMap.get(batch.exam_id).scheduled_start)
+        ) {
+          examMap.set(batch.exam_id, batch);
+        }
+      });
+
+      // Convert back to array and limit to 5
+      const uniqueExams = Array.from(examMap.values())
+        .sort(
+          (a, b) =>
+            new Date(a.scheduled_start).getTime() -
+            new Date(b.scheduled_start).getTime()
+        )
+        .slice(0, 5);
+
+      setUpcomingExams((uniqueExams as unknown as ExamBatch[]) || []);
+    } catch (error) {
+      console.error('Error fetching upcoming exams:', error);
+    }
+  }, [user]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchTodayStats(),
+        fetchUpcomingLectures(),
+        fetchUpcomingExams(),
+      ]);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchTodayStats, fetchUpcomingLectures, fetchUpcomingExams]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchDashboardData();
+    setRefreshing(false);
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user, fetchDashboardData]);
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+  };
+
+  const handleLecturePress = (lectureId: string) => {
+    router.push(`/lectures/${lectureId}`);
+  };
+
+  const handleExamPress = (examId: string) => {
+    router.push(`/exams/${examId}`);
+  };
+
+  const handleViewAllLectures = () => {
+    router.push('/lectures');
+  };
+
+  const handleViewAllExams = () => {
+    router.push('/exams');
+  };
+
+  const handleProfilePress = () => {
+    router.push('/profile');
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeTitle}>Welcome Back!</Text>
-            <Text style={styles.userName}>Arjun Sharma</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.notificationButton}>
-              <Bell size={24} color="#64748B" />
-              <View style={styles.notificationBadge}>
-                <Text style={styles.badgeText}>3</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Welcome Back!</Text>
+          <Text style={styles.headerSubtitle}>
+            {user?.full_name || 'Student'}
+          </Text>
         </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.iconButton}>
+            <Bell size={24} color="#64748B" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleProfilePress}
+          >
+            <User size={24} color="#64748B" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-        {/* BrainStormers Branding */}
-        <LinearGradient
-          colors={['#2563EB', '#1D4ED8']}
-          style={styles.brandingCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}>
-          <Text style={styles.brandingTitle}>BrainStormers</Text>
-          <Text style={styles.brandingSubtitle}>Excellence in HSC Education</Text>
-          <View style={styles.brandingStats}>
-            <View style={styles.statItem}>
-              <Star size={16} color="#FFF" />
-              <Text style={styles.statText}>4.9 Rating</Text>
-            </View>
-            <View style={styles.statItem}>
-              <TrendingUp size={16} color="#FFF" />
-              <Text style={styles.statText}>98% Success Rate</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#2563EB']}
+            progressBackgroundColor="#F8FAFC"
+          />
+        }
+      >
         {/* Today's Progress */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Progress</Text>
-          <View style={styles.progressCard}>
+          <Text style={styles.sectionTitle}>Today&apos;s Progress</Text>
+          <LinearGradient
+            colors={['#2563EB', '#3B82F6']}
+            style={styles.progressCard}
+          >
             <View style={styles.progressRow}>
               <View style={styles.progressItem}>
-                <View style={styles.progressCircle}>
-                  <BookOpen size={20} color="#2563EB" />
-                </View>
-                <View style={styles.progressInfo}>
-                  <Text style={styles.progressValue}>{todayStats.lecturesAttended}/{todayStats.totalLectures}</Text>
-                  <Text style={styles.progressLabel}>Lectures</Text>
-                </View>
+                <BookOpen size={20} color="#ffffff" />
+                <Text style={styles.progressNumber}>
+                  {todayStats.completedLectures}/{todayStats.lecturesCount}
+                </Text>
+                <Text style={styles.progressLabel}>Lectures</Text>
               </View>
               <View style={styles.progressItem}>
-                <View style={styles.progressCircle}>
-                  <Calendar size={20} color="#059669" />
-                </View>
-                <View style={styles.progressInfo}>
-                  <Text style={styles.progressValue}>{todayStats.assignmentsCompleted}/{todayStats.totalAssignments}</Text>
-                  <Text style={styles.progressLabel}>Assignments</Text>
-                </View>
+                <FileText size={20} color="#ffffff" />
+                <Text style={styles.progressNumber}>
+                  {todayStats.completedExams}/{todayStats.examsCount}
+                </Text>
+                <Text style={styles.progressLabel}>Exams</Text>
+              </View>
+              <View style={styles.progressItem}>
+                <TrendingUp size={20} color="#ffffff" />
+                <Text style={styles.progressNumber}>
+                  {todayStats.lecturesCount + todayStats.examsCount > 0
+                    ? Math.round(
+                        ((todayStats.completedLectures +
+                          todayStats.completedExams) /
+                          (todayStats.lecturesCount + todayStats.examsCount)) *
+                          100
+                      )
+                    : 0}
+                  %
+                </Text>
+                <Text style={styles.progressLabel}>Completion</Text>
               </View>
             </View>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* Upcoming Lectures */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming Lectures</Text>
-          {upcomingLectures.map((lecture) => (
-            <TouchableOpacity key={lecture.id} style={styles.lectureCard}>
-              <View style={styles.lectureHeader}>
-                <View style={styles.subjectBadge}>
-                  <Text style={styles.subjectText}>{lecture.subject}</Text>
-                </View>
-                <View style={styles.timeInfo}>
-                  <Clock size={14} color="#64748B" />
-                  <Text style={styles.timeText}>{lecture.time}</Text>
-                </View>
-              </View>
-              <Text style={styles.lectureTopic}>{lecture.topic}</Text>
-              <Text style={styles.lectureDate}>{lecture.date}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Lectures</Text>
+            <TouchableOpacity onPress={handleViewAllLectures}>
+              <ChevronRight size={20} color="#2563EB" />
             </TouchableOpacity>
-          ))}
+          </View>
+          {upcomingLectures.length === 0 ? (
+            <View style={styles.emptyState}>
+              <BookOpen size={48} color="#CBD5E1" />
+              <Text style={styles.emptyStateText}>No upcoming lectures</Text>
+            </View>
+          ) : (
+            upcomingLectures.map((lectureBatch) => (
+              <TouchableOpacity
+                key={lectureBatch.id}
+                style={styles.eventCard}
+                onPress={() => handleLecturePress(lectureBatch.lecture_id)}
+              >
+                <View style={styles.eventHeader}>
+                  <View
+                    style={[styles.eventIcon, { backgroundColor: '#EBF4FF' }]}
+                  >
+                    <BookOpen size={20} color="#2563EB" />
+                  </View>
+                  <View style={styles.eventContent}>
+                    <Text style={styles.eventTitle}>
+                      {lectureBatch.lecture.subject}
+                    </Text>
+                    <Text style={styles.eventSubtitle}>
+                      {lectureBatch.lecture.topic}
+                    </Text>
+                    <Text style={styles.eventCourse}>
+                      {lectureBatch.lecture.course.name}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color="#64748B" />
+                </View>
+                <View style={styles.eventTime}>
+                  <Clock size={16} color="#64748B" />
+                  <Text style={styles.eventTimeText}>
+                    {formatDate(lectureBatch.scheduled_at)} at{' '}
+                    {formatTime(lectureBatch.scheduled_at)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
-        {/* Recent Notifications */}
+        {/* Upcoming Exams */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Notifications</Text>
-          {recentNotifications.map((notification) => (
-            <TouchableOpacity key={notification.id} style={styles.notificationCard}>
-              <View style={styles.notificationContent}>
-                <View style={[styles.notificationDot, { backgroundColor: notification.type === 'exam' ? '#EF4444' : '#2563EB' }]} />
-                <View style={styles.notificationText}>
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  <Text style={styles.notificationMessage}>{notification.message}</Text>
-                </View>
-              </View>
-              <Text style={styles.notificationTime}>{notification.time}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Exams</Text>
+            <TouchableOpacity onPress={handleViewAllExams}>
+              <ChevronRight size={20} color="#2563EB" />
             </TouchableOpacity>
-          ))}
+          </View>
+          {upcomingExams.length === 0 ? (
+            <View style={styles.emptyState}>
+              <FileText size={48} color="#CBD5E1" />
+              <Text style={styles.emptyStateText}>No upcoming exams</Text>
+            </View>
+          ) : (
+            upcomingExams.map((examBatch) => (
+              <TouchableOpacity
+                key={examBatch.id}
+                style={styles.eventCard}
+                onPress={() => handleExamPress(examBatch.exam_id)}
+              >
+                <View style={styles.eventHeader}>
+                  <View
+                    style={[styles.eventIcon, { backgroundColor: '#FEF2F2' }]}
+                  >
+                    <FileText size={20} color="#EF4444" />
+                  </View>
+                  <View style={styles.eventContent}>
+                    <Text style={styles.eventTitle}>{examBatch.exam.name}</Text>
+                    <Text style={styles.eventSubtitle}>
+                      {examBatch.exam.subject} - {examBatch.exam.topic}
+                    </Text>
+                    <Text style={styles.eventCourse}>
+                      {examBatch.exam.course.name} •{' '}
+                      {examBatch.exam.total_marks} marks
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color="#64748B" />
+                </View>
+                <View style={styles.eventTime}>
+                  <Clock size={16} color="#64748B" />
+                  <Text style={styles.eventTimeText}>
+                    {formatDate(examBatch.scheduled_start)} at{' '}
+                    {formatTime(examBatch.scheduled_start)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -137,6 +668,15 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -147,223 +687,135 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
-  welcomeTitle: {
-    fontSize: 16,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-  },
-  userName: {
+  headerTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
-    marginTop: 2,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#64748B',
   },
   headerRight: {
-    position: 'relative',
+    flexDirection: 'row',
+    gap: 8,
   },
-  notificationButton: {
+  iconButton: {
     padding: 8,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
-  },
-  brandingCard: {
-    margin: 20,
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  brandingTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
-  },
-  brandingSubtitle: {
-    fontSize: 16,
-    color: '#BFDBFE',
-    fontFamily: 'Inter-Regular',
-    marginTop: 4,
-  },
-  brandingStats: {
-    flexDirection: 'row',
-    marginTop: 16,
-    gap: 24,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
   },
   section: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingVertical: 16,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
   progressCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    marginTop: 8,
   },
   progressRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
   progressItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  progressCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressInfo: {
-    alignItems: 'flex-start',
-  },
-  progressValue: {
+  progressNumber: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1E293B',
-    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
   },
   progressLabel: {
-    fontSize: 14,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginTop: 2,
+    fontSize: 12,
+    color: '#E2E8F0',
+    fontWeight: '500',
   },
-  lectureCard: {
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
-  lectureHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  subjectBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  subjectText: {
-    fontSize: 12,
-    color: '#2563EB',
-    fontFamily: 'Inter-SemiBold',
-  },
-  timeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  timeText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontFamily: 'Inter-Medium',
-  },
-  lectureTopic: {
+  emptyStateText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 4,
-  },
-  lectureDate: {
-    fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    marginTop: 12,
+    textAlign: 'center',
   },
-  notificationCard: {
+  eventCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
-  notificationContent: {
+  eventHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  notificationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 6,
+  eventIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
-  notificationText: {
+  eventContent: {
     flex: 1,
   },
-  notificationTitle: {
+  eventTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
     marginBottom: 4,
   },
-  notificationMessage: {
+  eventSubtitle: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    lineHeight: 20,
+    marginBottom: 4,
   },
-  notificationTime: {
+  eventCourse: {
     fontSize: 12,
     color: '#94A3B8',
-    fontFamily: 'Inter-Regular',
-    alignSelf: 'flex-end',
+    fontWeight: '500',
+  },
+  eventTime: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  eventTimeText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
 });

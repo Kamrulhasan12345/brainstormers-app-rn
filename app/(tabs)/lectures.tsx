@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,78 +10,33 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Filter, Clock, FileText, Users } from 'lucide-react-native';
-import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { lecturesManagementService } from '@/services/lectures-management';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-
-const filterOptions = [
-  'All',
-  'Today',
-  'Tomorrow',
-  'This Week',
-  'Upcoming',
-  'Ongoing',
-  'Completed',
-  'Postponed',
-];
+import { lecturesManagementService } from '../../services/lectures-management';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  Calendar,
+  Clock,
+  Users,
+  Filter,
+  ChevronRight,
+  Search,
+  BookOpen,
+} from 'lucide-react-native';
 
 export default function LecturesScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('All');
-  const [selectedSubject, setSelectedSubject] = useState('All');
   const [lectures, setLectures] = useState<any[]>([]);
-  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeFilter, setTimeFilter] = useState<
+    'all' | 'today' | 'tomorrow' | 'this_week'
+  >('all');
+  const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [subjects, setSubjects] = useState<string[]>([]);
   const { user } = useAuth();
   const router = useRouter();
-
-  // Calculate the actual status of a batch based on its scheduled time
-  const calculateBatchStatus = (
-    batch: any
-  ):
-    | 'upcoming'
-    | 'ongoing'
-    | 'completed'
-    | 'postponed'
-    | 'cancelled'
-    | 'not_held' => {
-    if (!batch) return 'upcoming';
-
-    const now = new Date();
-    const scheduledTime = new Date(batch.scheduled_at);
-
-    // If manually set to completed, postponed, cancelled, or not_held, respect that
-    if (
-      batch.status === 'completed' ||
-      batch.status === 'postponed' ||
-      batch.status === 'cancelled' ||
-      batch.status === 'not_held'
-    ) {
-      return batch.status;
-    }
-
-    // Calculate time difference
-    const timeDiff = now.getTime() - scheduledTime.getTime();
-    const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-    // If the lecture hasn't started yet (more than 15 minutes before)
-    if (hoursDiff < -0.25) {
-      return 'upcoming';
-    }
-
-    // If the lecture has started but not been marked as complete (within 4 hours of start time)
-    if (hoursDiff >= -0.25 && hoursDiff < 4) {
-      return 'ongoing';
-    }
-
-    // If it's been more than 4 hours and not marked complete, consider it not held
-    return 'not_held';
-  };
 
   const loadLectures = useCallback(async () => {
     try {
@@ -115,7 +71,7 @@ export default function LecturesScreen() {
         enrollments?.map((e: any) => e.course?.id).filter(Boolean) || [];
       if (enrolledCourseIds.length === 0) {
         setLectures([]);
-        setAvailableSubjects([]);
+        setSubjects([]);
         return;
       }
 
@@ -125,91 +81,153 @@ export default function LecturesScreen() {
         enrolledCourseIds.includes(lecture.course_id)
       );
 
-      // Transform the data to match the expected format
+      // Format lectures similar to exams
       const formattedLectures = await Promise.all(
         enrolledLectures.map(async (lecture: any) => {
-          // Get batches for this lecture
-          const batches = await lecturesManagementService.getLectureBatches(
-            lecture.id
-          );
+          try {
+            const batches = await lecturesManagementService.getLectureBatches(
+              lecture.id
+            );
+            const firstBatch = batches[0];
 
-          // Find the next scheduled batch or most recent one
-          const nextBatch =
-            batches.find(
-              (batch) =>
-                batch.status === 'scheduled' || batch.status === 'completed'
-            ) || batches[0];
-
-          // Get attendance status for completed lectures
-          let attendanceStatus = null;
-          if (nextBatch && nextBatch.status === 'completed') {
-            try {
-              const attendanceRecords =
-                await lecturesManagementService.getAttendanceForBatch(
-                  nextBatch.id
-                );
-              const userAttendance = attendanceRecords.find(
-                (att) => att.student_id === user.id
-              );
-              attendanceStatus = userAttendance?.status || 'absent';
-            } catch (error) {
-              console.warn('Failed to fetch attendance:', error);
-              attendanceStatus = null;
+            // Calculate duration from first batch times
+            let duration = 'N/A';
+            if (firstBatch?.scheduled_at && firstBatch?.end_time) {
+              const startTime = new Date(firstBatch.scheduled_at);
+              const endTime = new Date(firstBatch.end_time);
+              const durationMinutes =
+                (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+              const hours = Math.floor(durationMinutes / 60);
+              const minutes = durationMinutes % 60;
+              duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
             }
-          }
 
-          return {
-            id: lecture.id,
-            subject: lecture.subject,
-            topic: lecture.topic || lecture.subject,
-            date: nextBatch?.scheduled_at
-              ? new Date(nextBatch.scheduled_at).toISOString().split('T')[0]
-              : new Date().toISOString().split('T')[0],
-            time: nextBatch?.scheduled_at
-              ? `${new Date(nextBatch.scheduled_at).toLocaleTimeString(
-                  'en-US',
-                  {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true,
+            // Format date and time from first batch
+            let lectureDate = 'TBD';
+            let lectureTime = 'TBD';
+            if (firstBatch?.scheduled_at) {
+              const startDateTime = new Date(firstBatch.scheduled_at);
+
+              // Format date in a more readable way
+              const today = new Date();
+              const tomorrow = new Date(today);
+              tomorrow.setDate(today.getDate() + 1);
+              const yesterday = new Date(today);
+              yesterday.setDate(today.getDate() - 1);
+
+              if (startDateTime.toDateString() === today.toDateString()) {
+                lectureDate = 'Today';
+              } else if (
+                startDateTime.toDateString() === tomorrow.toDateString()
+              ) {
+                lectureDate = 'Tomorrow';
+              } else if (
+                startDateTime.toDateString() === yesterday.toDateString()
+              ) {
+                lectureDate = 'Yesterday';
+              } else {
+                lectureDate = startDateTime.toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                });
+              }
+
+              // Format time with AM/PM for better readability
+              lectureTime = startDateTime.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+              });
+
+              if (firstBatch.end_time) {
+                const endDateTime = new Date(firstBatch.end_time);
+                lectureTime += ` - ${endDateTime.toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                })}`;
+              }
+            }
+
+            // Determine lecture status
+            let status = 'scheduled';
+            const now = new Date();
+
+            if (firstBatch?.scheduled_at) {
+              const startTime = new Date(firstBatch.scheduled_at);
+
+              // First check the batch status from database
+              if (firstBatch.status === 'completed') {
+                status = 'completed';
+              } else if (firstBatch.status === 'cancelled') {
+                status = 'cancelled';
+              } else if (firstBatch.status === 'postponed') {
+                status = 'postponed';
+              } else {
+                // If batch is scheduled, determine status based on time
+                if (firstBatch.end_time) {
+                  const endTime = new Date(firstBatch.end_time);
+
+                  if (now > endTime) {
+                    status = 'completed';
+                  } else if (now >= startTime && now <= endTime) {
+                    status = 'ongoing';
+                  } else if (now < startTime) {
+                    status = 'upcoming';
                   }
-                )}${
-                  nextBatch.end_time
-                    ? ` - ${new Date(nextBatch.end_time).toLocaleTimeString(
-                        'en-US',
-                        {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: true,
-                        }
-                      )}`
-                    : ''
-                }`
-              : '',
-            status: nextBatch ? calculateBatchStatus(nextBatch) : 'upcoming',
-            attendees: nextBatch?.attendance_count || 0,
-            description: lecture.chapter
-              ? `Chapter: ${lecture.chapter}`
-              : 'Lecture content',
-            notesCount: batches.reduce(
-              (sum, batch) => sum + (batch.lecture_notes?.length || 0),
-              0
-            ),
-            batchId: nextBatch?.id,
-            courseId: lecture.course_id,
-            courseName: lecture.course?.name || 'Unknown Course',
-            attendanceStatus, // Add attendance status
-          };
+                } else {
+                  // If no end time, only mark as upcoming if before start time
+                  if (now < startTime) {
+                    status = 'upcoming';
+                  } else {
+                    // If no end time and past start time, keep it as scheduled
+                    status = 'scheduled';
+                  }
+                }
+              }
+            }
+
+            return {
+              ...lecture,
+              batches,
+              duration,
+              nextBatch: firstBatch,
+              status,
+              lectureType: lecture.subject || 'General',
+              date: lectureDate,
+              time: lectureTime,
+              attendees: firstBatch?.attendance_count || 0,
+            };
+          } catch (err) {
+            console.error(
+              `Error loading batches for lecture ${lecture.id}:`,
+              err
+            );
+            return {
+              ...lecture,
+              batches: [],
+              duration: 'N/A',
+              nextBatch: null,
+              status: 'scheduled',
+              lectureType: lecture.subject || 'General',
+              date: lecture.created_at,
+              time: 'N/A',
+              attendees: 0,
+            };
+          }
         })
       );
 
       setLectures(formattedLectures);
 
-      // Extract unique subjects for filtering
-      const subjects = [
-        ...new Set(formattedLectures.map((lecture) => lecture.subject)),
-      ];
-      setAvailableSubjects(subjects);
+      // Extract unique subjects
+      const uniqueSubjects = Array.from(
+        new Set(
+          formattedLectures.map((lecture) => lecture.subject).filter(Boolean)
+        )
+      );
+      setSubjects(['All', ...uniqueSubjects]);
     } catch (err) {
       console.error('Error loading lectures:', err);
       setError('Failed to load lectures. Please try again.');
@@ -222,127 +240,269 @@ export default function LecturesScreen() {
     loadLectures();
   }, [loadLectures]);
 
-  const onRefresh = useCallback(async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
     await loadLectures();
     setRefreshing(false);
-  }, [loadLectures]);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'upcoming':
         return '#2563EB';
       case 'ongoing':
-        return '#F59E0B';
-      case 'scheduled':
-        return '#2563EB';
+        return '#EA580C';
       case 'completed':
         return '#059669';
-      case 'postponed':
-        return '#F59E0B';
       case 'cancelled':
         return '#EF4444';
-      case 'not_held':
-        return '#64748B';
+      case 'postponed':
+        return '#F59E0B';
       default:
         return '#64748B';
     }
   };
 
-  const getStatusBgColor = (status: string) => {
+  const getStatusText = (status: string) => {
     switch (status) {
       case 'upcoming':
-        return '#EFF6FF';
+        return 'Upcoming';
       case 'ongoing':
-        return '#FEF3C7';
-      case 'scheduled':
-        return '#EFF6FF';
+        return 'Ongoing';
       case 'completed':
-        return '#ECFDF5';
-      case 'postponed':
-        return '#FEF3C7';
+        return 'Completed';
       case 'cancelled':
-        return '#FEF2F2';
-      case 'not_held':
-        return '#F1F5F9';
+        return 'Cancelled';
+      case 'postponed':
+        return 'Postponed';
       default:
-        return '#F1F5F9';
+        return 'Scheduled';
     }
   };
 
-  const getAttendanceColor = (status: string) => {
-    switch (status) {
-      case 'present':
-        return '#059669';
-      case 'late':
-        return '#F59E0B';
-      case 'absent':
-        return '#EF4444';
-      case 'excused':
-        return '#6B7280';
-      default:
-        return '#6B7280';
+  const isToday = (dateString: string) => {
+    const today = new Date();
+    const lectureDate = new Date(dateString);
+    return lectureDate.toDateString() === today.toDateString();
+  };
+
+  const isTomorrow = (dateString: string) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const lectureDate = new Date(dateString);
+    return lectureDate.toDateString() === tomorrow.toDateString();
+  };
+
+  const isThisWeek = (dateString: string) => {
+    const today = new Date();
+    const lectureDate = new Date(dateString);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    return lectureDate >= startOfWeek && lectureDate <= endOfWeek;
+  };
+
+  const getFilteredLectures = () => {
+    let filtered = lectures;
+
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (lecture) =>
+          lecture.topic?.toLowerCase().includes(query) ||
+          lecture.subject?.toLowerCase().includes(query) ||
+          lecture.chapter?.toLowerCase().includes(query) ||
+          lecture.course?.name?.toLowerCase().includes(query)
+      );
     }
+
+    // Apply time filter
+    if (timeFilter !== 'all') {
+      filtered = filtered.filter((lecture) => {
+        const lectureDate = lecture.nextBatch?.scheduled_at || lecture.date;
+        switch (timeFilter) {
+          case 'today':
+            return isToday(lectureDate);
+          case 'tomorrow':
+            return isTomorrow(lectureDate);
+          case 'this_week':
+            return isThisWeek(lectureDate);
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply subject filter
+    if (subjectFilter !== 'all') {
+      filtered = filtered.filter(
+        (lecture) => lecture.subject === subjectFilter
+      );
+    }
+
+    return filtered;
   };
 
   const handleLecturePress = (lecture: any) => {
-    // Navigate to the lecture details page with the lecture ID and batch ID
-    router.push(`/(tabs)/lectures/${lecture.id}` as any);
+    router.push(`/lectures/${lecture.id}`);
   };
 
-  const filteredLectures = lectures.filter((lecture) => {
-    const matchesSearch =
-      lecture.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lecture.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSubject =
-      selectedSubject === 'All' || lecture.subject === selectedSubject;
+  const renderSearchBar = () => {
+    return (
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <Search size={20} color="#64748B" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search lectures by topic, subject, or chapter..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+      </View>
+    );
+  };
 
-    // Date filtering
-    const lectureDate = new Date(lecture.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
+  const renderTimeFilter = () => {
+    const timeOptions = [
+      { value: 'all', label: 'All' },
+      { value: 'today', label: 'Today' },
+      { value: 'tomorrow', label: 'Tomorrow' },
+      { value: 'this_week', label: 'This Week' },
+    ];
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    return (
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Time Filter:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {timeOptions.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.filterButton,
+                timeFilter === option.value && styles.filterButtonActive,
+              ]}
+              onPress={() => setTimeFilter(option.value as any)}
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  timeFilter === option.value && styles.filterButtonTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
 
-    const nextWeek = new Date(today);
-    nextWeek.setDate(nextWeek.getDate() + 7);
+  const renderSubjectFilter = () => {
+    return (
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Subject Filter:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {subjects.map((subject) => (
+            <TouchableOpacity
+              key={subject}
+              style={[
+                styles.filterButton,
+                (subjectFilter === 'all' && subject === 'All') ||
+                subjectFilter === subject
+                  ? styles.filterButtonActive
+                  : null,
+              ]}
+              onPress={() =>
+                setSubjectFilter(subject === 'All' ? 'all' : subject)
+              }
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  (subjectFilter === 'all' && subject === 'All') ||
+                  subjectFilter === subject
+                    ? styles.filterButtonTextActive
+                    : null,
+                ]}
+              >
+                {subject}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
 
-    let matchesFilter = true;
-    switch (selectedFilter) {
-      case 'Today':
-        lectureDate.setHours(0, 0, 0, 0);
-        matchesFilter = lectureDate.getTime() === today.getTime();
-        break;
-      case 'Tomorrow':
-        lectureDate.setHours(0, 0, 0, 0);
-        matchesFilter = lectureDate.getTime() === tomorrow.getTime();
-        break;
-      case 'This Week':
-        lectureDate.setHours(0, 0, 0, 0);
-        matchesFilter = lectureDate >= today && lectureDate <= nextWeek;
-        break;
-      case 'Upcoming':
-        matchesFilter = lecture.status === 'upcoming';
-        break;
-      case 'Ongoing':
-        matchesFilter = lecture.status === 'ongoing';
-        break;
-      case 'Scheduled':
-        matchesFilter = lecture.status === 'scheduled';
-        break;
-      case 'Completed':
-        matchesFilter = lecture.status === 'completed';
-        break;
-      case 'Postponed':
-        matchesFilter = lecture.status === 'postponed';
-        break;
-      default:
-        matchesFilter = true;
-    }
+  const renderLectureCard = (lecture: any) => {
+    return (
+      <TouchableOpacity
+        key={lecture.id}
+        style={styles.lectureCard}
+        onPress={() => handleLecturePress(lecture)}
+      >
+        <View style={styles.lectureHeader}>
+          <Text style={styles.lectureName}>
+            {lecture.topic || lecture.subject}
+          </Text>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: getStatusColor(lecture.status) },
+            ]}
+          >
+            <Text style={styles.statusText}>
+              {getStatusText(lecture.status)}
+            </Text>
+          </View>
+        </View>
 
-    return matchesSearch && matchesSubject && matchesFilter;
-  });
+        <Text style={styles.lectureSubject}>{lecture.subject}</Text>
+        {lecture.chapter && (
+          <Text style={styles.lectureChapter}>Chapter: {lecture.chapter}</Text>
+        )}
+
+        <View style={styles.lectureDetails}>
+          <View style={styles.detailRow}>
+            <Calendar size={16} color="#64748B" />
+            <Text style={styles.detailText}>{lecture.date}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Clock size={16} color="#64748B" />
+            <Text style={styles.detailText}>{lecture.time}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Users size={16} color="#64748B" />
+            <Text style={styles.detailText}>{lecture.attendees} attendees</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <BookOpen size={16} color="#64748B" />
+            <Text style={styles.detailText}>{lecture.duration}</Text>
+          </View>
+        </View>
+
+        <View style={styles.lectureFooter}>
+          <Text style={styles.courseText}>
+            {lecture.course?.name || 'General'}
+          </Text>
+          <ChevronRight size={20} color="#64748B" />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -355,214 +515,51 @@ export default function LecturesScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lecture Plan</Text>
-        <Text style={styles.headerSubtitle}>HSC 2027 Batch</Text>
-      </View>
-
-      {error && (
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadLectures}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      )}
+      </SafeAreaView>
+    );
+  }
+
+  const filteredLectures = getFilteredLectures();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Lectures</Text>
+        <TouchableOpacity style={styles.filterIcon}>
+          <Filter size={24} color="#2563EB" />
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#2563EB']}
-            tintColor="#2563EB"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Search Bar */}
-        <View style={styles.searchSection}>
-          <View style={styles.searchBar}>
-            <Search size={20} color="#64748B" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search lectures, topics, or subjects..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#94A3B8"
-            />
-          </View>
-          <TouchableOpacity style={styles.filterButton} disabled={true}>
-            <Filter size={20} color="#94A3B8" />
-          </TouchableOpacity>
-        </View>
+        {renderSearchBar()}
+        {renderTimeFilter()}
+        {renderSubjectFilter()}
 
-        {/* Filter Options */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-        >
-          <View style={styles.filterContainer}>
-            {filterOptions.map((filter) => (
-              <TouchableOpacity
-                key={filter}
-                style={[
-                  styles.filterChip,
-                  selectedFilter === filter && styles.filterChipActive,
-                ]}
-                onPress={() => setSelectedFilter(filter)}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    selectedFilter === filter && styles.filterTextActive,
-                  ]}
-                >
-                  {filter}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* Subject Filter */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Filter by Subject</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.subjectContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.subjectChip,
-                  selectedSubject === 'All' && styles.subjectChipActive,
-                ]}
-                onPress={() => setSelectedSubject('All')}
-              >
-                <Text
-                  style={[
-                    styles.subjectText,
-                    selectedSubject === 'All' && styles.subjectTextActive,
-                  ]}
-                >
-                  All Subjects
-                </Text>
-              </TouchableOpacity>
-              {availableSubjects.map((subject) => (
-                <TouchableOpacity
-                  key={subject}
-                  style={[
-                    styles.subjectChip,
-                    selectedSubject === subject && styles.subjectChipActive,
-                  ]}
-                  onPress={() => setSelectedSubject(subject)}
-                >
-                  <Text
-                    style={[
-                      styles.subjectText,
-                      selectedSubject === subject && styles.subjectTextActive,
-                    ]}
-                  >
-                    {subject}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Lecture Cards */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Lectures</Text>
-          {filteredLectures.map((lecture) => (
-            <TouchableOpacity
-              key={lecture.id}
-              style={styles.lectureCard}
-              onPress={() => handleLecturePress(lecture)}
-            >
-              <View style={styles.cardHeader}>
-                <View style={styles.subjectInfo}>
-                  <Text style={styles.subjectName}>{lecture.subject}</Text>
-                </View>
-                <View style={styles.cardActions}>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusBgColor(lecture.status) },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: getStatusColor(lecture.status) },
-                      ]}
-                    >
-                      {lecture.status.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <Text style={styles.lectureTopic}>{lecture.topic}</Text>
-              <Text style={styles.lectureDescription}>
-                {lecture.description}
+        <View style={styles.lecturesList}>
+          {filteredLectures.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                No lectures found for the selected filters
               </Text>
-
-              <View style={styles.lectureDetails}>
-                {lecture.time && (
-                  <View style={styles.detailItem}>
-                    <Clock size={16} color="#64748B" />
-                    <Text style={styles.detailText}>{lecture.time}</Text>
-                  </View>
-                )}
-                {lecture.status === 'completed' && lecture.attendanceStatus && (
-                  <View style={styles.detailItem}>
-                    <View
-                      style={[
-                        styles.attendanceIndicator,
-                        {
-                          backgroundColor: getAttendanceColor(
-                            lecture.attendanceStatus
-                          ),
-                        },
-                      ]}
-                    >
-                      <Text style={styles.attendanceText}>
-                        {lecture.attendanceStatus.charAt(0).toUpperCase() +
-                          lecture.attendanceStatus.slice(1)}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.cardFooter}>
-                <View style={styles.statsContainer}>
-                  <View style={styles.statItem}>
-                    <FileText size={14} color="#64748B" />
-                    <Text style={styles.statText}>
-                      {lecture.notesCount} Notes
-                    </Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Users size={14} color="#64748B" />
-                    <Text style={styles.statText}>
-                      {lecture.attendees} Students
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.lectureDate}>
-                  {new Date(lecture.date).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+            </View>
+          ) : (
+            filteredLectures.map(renderLectureCard)
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -574,184 +571,114 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-  },
-  errorContainer: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
-    alignItems: 'center',
-    gap: 12,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#EF4444',
-    fontFamily: 'Inter-Regular',
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
-  },
   header: {
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginTop: 4,
+  filterIcon: {
+    padding: 8,
   },
   scrollView: {
     flex: 1,
   },
   searchSection: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
-  searchBar: {
-    flex: 1,
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
-    fontFamily: 'Inter-Regular',
+    marginLeft: 8,
+    paddingVertical: 4,
   },
-  filterButton: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+  filterSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
   },
   filterScroll: {
-    paddingLeft: 20,
-  },
-  filterContainer: {
     flexDirection: 'row',
-    gap: 12,
-    paddingRight: 20,
   },
-  filterChip: {
-    backgroundColor: '#FFFFFF',
+  filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    backgroundColor: '#F1F5F9',
     borderRadius: 20,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  filterChipActive: {
+  filterButtonActive: {
     backgroundColor: '#2563EB',
     borderColor: '#2563EB',
   },
-  filterText: {
+  filterButtonText: {
     fontSize: 14,
+    fontWeight: '500',
     color: '#64748B',
-    fontFamily: 'Inter-Medium',
   },
-  filterTextActive: {
+  filterButtonTextActive: {
     color: '#FFFFFF',
   },
-  section: {
-    paddingHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 16,
-  },
-  subjectContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingRight: 20,
-  },
-  subjectChip: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  subjectChipActive: {
-    backgroundColor: '#059669',
-  },
-  subjectText: {
-    fontSize: 14,
-    color: '#475569',
-    fontFamily: 'Inter-Medium',
-  },
-  subjectTextActive: {
-    color: '#FFFFFF',
+  lecturesList: {
+    padding: 20,
   },
   lectureCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  cardHeader: {
+  lectureHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  subjectInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  lectureName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    flex: 1,
+    marginRight: 12,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -759,100 +686,89 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
-  subjectName: {
+  lectureSubject: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#2563EB',
-    fontFamily: 'Inter-SemiBold',
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lectureTopic: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1E293B',
-    fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
-  teacherName: {
+  lectureChapter: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Medium',
-    marginBottom: 8,
-  },
-  lectureDescription: {
-    fontSize: 14,
-    color: '#475569',
-    fontFamily: 'Inter-Regular',
-    lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   lectureDetails: {
-    flexDirection: 'row',
-    gap: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  detailItem: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    marginBottom: 6,
   },
   detailText: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
+    marginLeft: 8,
   },
-  cardFooter: {
+  lectureFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#E2E8F0',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-  },
-  lectureDate: {
+  courseText: {
     fontSize: 14,
-    color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '500',
+    color: '#475569',
   },
-  attendanceIndicator: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignItems: 'center',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  attendanceText: {
-    fontSize: 12,
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
+    marginTop: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
     color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
   },
 });

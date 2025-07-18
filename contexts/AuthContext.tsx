@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -116,6 +117,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      console.log('Refreshing user profile...');
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        const user = await authService.getCurrentUser();
+        console.log('User profile refreshed:', user);
+        setAuthState((prev) => ({
+          ...prev,
+          user,
+        }));
+      }
+    } catch (error) {
+      console.error('Error refreshing user profile:', error);
+    }
+  };
+
   const logout = async () => {
     try {
       console.log('Logout initiated');
@@ -143,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ ...authState, login, logout }}>
+    <AuthContext.Provider value={{ ...authState, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

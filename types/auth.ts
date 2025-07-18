@@ -9,7 +9,7 @@ export interface Profile {
 }
 
 export interface User extends Profile {
-  // Optionally, you can add auth/session fields here if needed
+  email: string; // Make email required for User
 }
 
 export interface AuthState {

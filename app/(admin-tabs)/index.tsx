@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,8 +20,6 @@ import {
   Bell,
   Upload,
   Download,
-  ChartBar as BarChart3,
-  Settings,
   LogOut,
   FileSpreadsheet,
   TriangleAlert as AlertTriangle,
@@ -27,13 +27,18 @@ import {
 } from 'lucide-react-native';
 import { excelService } from '@/services/excel';
 import { notificationService } from '@/services/notifications';
+import { adminStatsService } from '@/services/admin-stats';
 
-const adminStats = {
-  totalStudents: 120,
-  totalLectures: 45,
-  upcomingExams: 8,
-  pendingNotifications: 12,
-};
+interface AdminStats {
+  totalStudents: number;
+  totalLectures: number;
+  upcomingExams: number;
+  completedLectures: number;
+  scheduledLectures: number;
+  totalExams: number;
+  completedExams: number;
+  averageAttendanceRate: number;
+}
 
 const quickActions = [
   {
@@ -74,14 +79,50 @@ export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [adminStats, setAdminStats] = useState<AdminStats>({
+    totalStudents: 0,
+    totalLectures: 0,
+    upcomingExams: 0,
+    completedLectures: 0,
+    scheduledLectures: 0,
+    totalExams: 0,
+    completedExams: 0,
+    averageAttendanceRate: 0,
+  });
 
   useEffect(() => {
-    console.log(user);
     if (!user || user.role !== 'admin') {
       console.log('Admin dashboard: User not admin, redirecting to login');
       router.replace('/login-selection');
+      return;
     }
+
+    loadAdminStats();
   }, [user, router]);
+
+  const loadAdminStats = async () => {
+    try {
+      setStatsLoading(true);
+      const stats = await adminStatsService.getAdminStatistics();
+      setAdminStats(stats);
+    } catch (error) {
+      console.error('Error loading admin statistics:', error);
+      Alert.alert('Error', 'Failed to load dashboard statistics');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  const refreshStats = async () => {
+    try {
+      setRefreshing(true);
+      await loadAdminStats();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleQuickImport = async () => {
     try {
@@ -112,10 +153,10 @@ export default function AdminDashboard() {
           }
         }
       }
-    } catch (error) {
+    } catch (err) {
       Alert.alert(
         'Import Failed',
-        error instanceof Error ? error.message : 'Failed to import Excel file'
+        err instanceof Error ? err.message : 'Failed to import Excel file'
       );
     } finally {
       setIsLoading(false);
@@ -130,7 +171,8 @@ export default function AdminDashboard() {
         'Sample Excel file has been generated. Use this format for importing your data.',
         [{ text: 'OK' }]
       );
-    } catch (error) {
+    } catch (err) {
+      console.error('Error generating sample Excel:', err);
       Alert.alert('Download Failed', 'Failed to generate sample Excel file');
     }
   };
@@ -166,6 +208,13 @@ export default function AdminDashboard() {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshStats}
+            tintColor="#2563EB"
+          />
+        }
       >
         {/* Header */}
         <LinearGradient
@@ -233,7 +282,11 @@ export default function AdminDashboard() {
               <View style={[styles.statIcon, { backgroundColor: '#EFF6FF' }]}>
                 <Users size={24} color="#2563EB" />
               </View>
-              <Text style={styles.statValue}>{adminStats.totalStudents}</Text>
+              {statsLoading ? (
+                <ActivityIndicator size="small" color="#2563EB" />
+              ) : (
+                <Text style={styles.statValue}>{adminStats.totalStudents}</Text>
+              )}
               <Text style={styles.statLabel}>Total Students</Text>
             </View>
 
@@ -241,7 +294,11 @@ export default function AdminDashboard() {
               <View style={[styles.statIcon, { backgroundColor: '#ECFDF5' }]}>
                 <BookOpen size={24} color="#059669" />
               </View>
-              <Text style={styles.statValue}>{adminStats.totalLectures}</Text>
+              {statsLoading ? (
+                <ActivityIndicator size="small" color="#059669" />
+              ) : (
+                <Text style={styles.statValue}>{adminStats.totalLectures}</Text>
+              )}
               <Text style={styles.statLabel}>Total Lectures</Text>
             </View>
 
@@ -249,18 +306,12 @@ export default function AdminDashboard() {
               <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
                 <Calendar size={24} color="#EA580C" />
               </View>
-              <Text style={styles.statValue}>{adminStats.upcomingExams}</Text>
+              {statsLoading ? (
+                <ActivityIndicator size="small" color="#EA580C" />
+              ) : (
+                <Text style={styles.statValue}>{adminStats.upcomingExams}</Text>
+              )}
               <Text style={styles.statLabel}>Upcoming Exams</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: '#F3E8FF' }]}>
-                <Bell size={24} color="#7C3AED" />
-              </View>
-              <Text style={styles.statValue}>
-                {adminStats.pendingNotifications}
-              </Text>
-              <Text style={styles.statLabel}>Pending Alerts</Text>
             </View>
           </View>
         </View>

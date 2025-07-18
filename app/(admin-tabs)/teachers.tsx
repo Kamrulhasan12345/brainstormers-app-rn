@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -219,7 +220,7 @@ export default function AdminTeachersScreen() {
     <View style={styles.teacherCard}>
       <View style={styles.teacherHeader}>
         <View style={styles.avatarContainer}>
-          <User size={24} color="#007AFF" />
+          <User size={24} color="#2563EB" />
         </View>
         <View style={styles.teacherInfo}>
           <Text style={styles.teacherName}>
@@ -238,7 +239,7 @@ export default function AdminTeachersScreen() {
             style={styles.actionButton}
             onPress={() => openEditModal(teacher)}
           >
-            <Edit size={16} color="#007AFF" />
+            <Edit size={16} color="#2563EB" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
@@ -265,7 +266,7 @@ export default function AdminTeachersScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.loadingText}>Loading teachers...</Text>
         </View>
       </SafeAreaView>
@@ -274,13 +275,14 @@ export default function AdminTeachersScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <ArrowLeft size={24} color="#007AFF" />
+          <ArrowLeft size={24} color="#2563EB" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Teacher Management</Text>
         <TouchableOpacity
@@ -336,7 +338,7 @@ export default function AdminTeachersScreen() {
                 resetForm();
               }}
             >
-              <X size={24} color="#007AFF" />
+              <X size={24} color="#2563EB" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Add New Teacher</Text>
             <TouchableOpacity
@@ -436,7 +438,7 @@ export default function AdminTeachersScreen() {
                 resetForm();
               }}
             >
-              <X size={24} color="#007AFF" />
+              <X size={24} color="#2563EB" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Edit Teacher</Text>
             <TouchableOpacity
@@ -500,59 +502,83 @@ export default function AdminTeachersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 16, fontSize: 16, color: '#6B7280' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#64748B',
+  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 8,
   },
-  headerTitle: { fontSize: 20, fontWeight: '600', color: '#1F2937' },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
   addButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 20,
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginTop: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
-  searchInput: { flex: 1, fontSize: 16, color: '#1F2937' },
-  teachersList: { flex: 1, paddingHorizontal: 20 },
+  searchInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    color: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  teachersList: {
+    flex: 1,
+    padding: 20,
+  },
   teacherCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  teacherHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  teacherHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
   avatarContainer: {
     width: 48,
     height: 48,
@@ -561,22 +587,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  teacherInfo: { flex: 1, marginLeft: 12 },
-  teacherName: { fontSize: 18, fontWeight: '600', color: '#1F2937' },
-  teacherEmail: { fontSize: 14, color: '#6B7280', marginTop: 2 },
-  teacherId: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  actionButtons: { flexDirection: 'row', gap: 8 },
+  teacherInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  teacherName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  teacherEmail: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  teacherId: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   actionButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteButton: { backgroundColor: '#FEF2F2' },
-  teacherDetails: { flexDirection: 'row', marginTop: 12, gap: 16 },
-  detailText: { fontSize: 12, color: '#6B7280', marginRight: 16 },
+  deleteButton: {
+    backgroundColor: '#FEF2F2',
+  },
+  teacherDetails: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    gap: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#64748B',
+  },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -586,16 +641,18 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#9CA3AF',
-    marginTop: 16,
+    color: '#94A3B8',
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#D1D5DB',
-    marginTop: 8,
+    color: '#CBD5E1',
     textAlign: 'center',
   },
-  modalContainer: { flex: 1, backgroundColor: '#F9FAFB' },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -604,26 +661,42 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
   },
-  modalTitle: { fontSize: 18, fontWeight: '600', color: '#1F2937' },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
   saveButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  saveButtonDisabled: { opacity: 0.5 },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '600' },
-  formContainer: { flex: 1, padding: 20 },
-  section: { marginBottom: 24 },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  formContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1E293B',
     marginBottom: 16,
   },
-  inputGroup: { marginBottom: 16 },
+  inputGroup: {
+    marginBottom: 16,
+  },
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
@@ -633,11 +706,11 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1F2937',
+    color: '#1E293B',
   },
 });

@@ -798,16 +798,26 @@ class LecturesManagementService {
     cancelled: number;
     averageAttendance: number;
   }> {
-    const { data: batches, error } = await supabase.from('lecture_batches')
-      .select(`
+    // Get total number of lectures from lectures table
+    const { data: lectures, error: lecturesError } = await supabase
+      .from('lectures')
+      .select('id');
+
+    if (lecturesError)
+      throw new Error(`Failed to fetch lectures: ${lecturesError.message}`);
+
+    // Get batch statistics from lecture_batches table
+    const { data: batches, error: batchesError } = await supabase.from(
+      'lecture_batches'
+    ).select(`
         status,
         attendances(status)
       `);
 
-    if (error)
-      throw new Error(`Failed to fetch lecture stats: ${error.message}`);
+    if (batchesError)
+      throw new Error(`Failed to fetch lecture stats: ${batchesError.message}`);
 
-    const total = batches?.length || 0;
+    const total = lectures?.length || 0; // Total number of lectures
     const scheduled =
       batches?.filter((b) => b.status === 'scheduled').length || 0;
     const completed =

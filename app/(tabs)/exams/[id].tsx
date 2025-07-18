@@ -147,10 +147,40 @@ export default function ExamDetails() {
     }
   };
 
+  const getActualBatchStatus = (batch: any) => {
+    const now = new Date();
+    const startTime = new Date(batch.scheduled_start);
+    const endTime = new Date(batch.scheduled_end);
+
+    // If manually set to cancelled or postponed, respect that
+    if (batch.status === 'cancelled' || batch.status === 'postponed') {
+      return batch.status;
+    }
+
+    // If there's attendance recorded and it's marked as completed, it's completed
+    if (batch.status === 'completed' || (batch.attendance && now > endTime)) {
+      return 'completed';
+    }
+
+    // Time-based status determination
+    if (now < startTime) {
+      return 'upcoming';
+    } else if (now >= startTime && now <= endTime) {
+      return 'ongoing';
+    } else if (now > endTime) {
+      return 'completed';
+    }
+
+    return 'scheduled';
+  };
+
   const getBatchStatusColor = (status: string) => {
     switch (status) {
+      case 'upcoming':
       case 'scheduled':
         return '#2563EB';
+      case 'ongoing':
+        return '#F59E0B';
       case 'completed':
         return '#059669';
       case 'cancelled':
@@ -164,8 +194,11 @@ export default function ExamDetails() {
 
   const getBatchStatusIcon = (status: string) => {
     switch (status) {
+      case 'upcoming':
       case 'scheduled':
         return Clock;
+      case 'ongoing':
+        return AlertCircle;
       case 'completed':
         return CheckCircle;
       case 'cancelled':
@@ -207,6 +240,56 @@ export default function ExamDetails() {
         hour12: false,
       }),
     };
+  };
+
+  const getRelativeTimeInfo = (batch: any) => {
+    const now = new Date();
+    const startTime = new Date(batch.scheduled_start);
+    const endTime = new Date(batch.scheduled_end);
+    const actualStatus = getActualBatchStatus(batch);
+
+    if (actualStatus === 'upcoming' || actualStatus === 'scheduled') {
+      const diffMs = startTime.getTime() - now.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.floor(
+        (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+      );
+
+      if (diffDays > 0) {
+        return `Starts in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+      } else if (diffHours > 0) {
+        return `Starts in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+      } else {
+        const diffMinutes = Math.floor(
+          (diffMs % (1000 * 60 * 60)) / (1000 * 60)
+        );
+        return `Starts in ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+      }
+    } else if (actualStatus === 'ongoing') {
+      const diffMs = endTime.getTime() - now.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (diffHours > 0) {
+        return `Ends in ${diffHours} hour${
+          diffHours > 1 ? 's' : ''
+        } ${diffMinutes} min`;
+      } else {
+        return `Ends in ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+      }
+    } else if (actualStatus === 'completed') {
+      const diffMs = now.getTime() - endTime.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 0) {
+        return `Completed ${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      } else {
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        return `Completed ${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      }
+    }
+
+    return '';
   };
 
   if (loading) {
@@ -279,7 +362,8 @@ export default function ExamDetails() {
           <Text style={styles.sectionTitle}>Exam Batches</Text>
           {exam.batches && exam.batches.length > 0 ? (
             exam.batches.map((batch: any) => {
-              const StatusIcon = getBatchStatusIcon(batch.status);
+              const actualStatus = getActualBatchStatus(batch);
+              const StatusIcon = getBatchStatusIcon(actualStatus);
               const startDateTime = formatDateTime(batch.scheduled_start);
               const endDateTime = formatDateTime(batch.scheduled_end);
 
@@ -289,17 +373,35 @@ export default function ExamDetails() {
                     <View style={styles.batchStatus}>
                       <StatusIcon
                         size={16}
-                        color={getBatchStatusColor(batch.status)}
+                        color={getBatchStatusColor(actualStatus)}
                       />
                       <Text
                         style={[
                           styles.batchStatusText,
-                          { color: getBatchStatusColor(batch.status) },
+                          { color: getBatchStatusColor(actualStatus) },
                         ]}
                       >
-                        {batch.status.toUpperCase()}
+                        {actualStatus.toUpperCase()}
                       </Text>
                     </View>
+                    {batch.attendance && (
+                      <View style={styles.quickAttendanceStatus}>
+                        <View
+                          style={[
+                            styles.quickAttendanceBadge,
+                            {
+                              backgroundColor: getAttendanceStatusColor(
+                                batch.attendance.status
+                              ),
+                            },
+                          ]}
+                        >
+                          <Text style={styles.quickAttendanceText}>
+                            {batch.attendance.status.toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.batchDetails}>
@@ -313,6 +415,16 @@ export default function ExamDetails() {
                       <Clock size={16} color="#64748B" />
                       <Text style={styles.detailText}>
                         {startDateTime.time} - {endDateTime.time}
+                      </Text>
+                    </View>
+                    <View style={styles.relativeTimeRow}>
+                      <Text
+                        style={[
+                          styles.relativeTimeText,
+                          { color: getBatchStatusColor(actualStatus) },
+                        ]}
+                      >
+                        {getRelativeTimeInfo(batch)}
                       </Text>
                     </View>
                   </View>
@@ -370,13 +482,35 @@ export default function ExamDetails() {
                     </View>
                   )}
 
-                  {!batch.attendance && batch.status === 'completed' && (
+                  {!batch.attendance && actualStatus === 'completed' && (
                     <View style={styles.noAttendanceSection}>
                       <Text style={styles.noAttendanceText}>
-                        No attendance recorded
+                        No attendance recorded for this batch
                       </Text>
                     </View>
                   )}
+
+                  {!batch.attendance && actualStatus === 'ongoing' && (
+                    <View style={styles.ongoingSection}>
+                      <View style={styles.ongoingIndicator}>
+                        <Text style={styles.ongoingText}>
+                          Exam is currently in progress
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {!batch.attendance &&
+                    (actualStatus === 'upcoming' ||
+                      actualStatus === 'scheduled') && (
+                      <View style={styles.upcomingSection}>
+                        <View style={styles.upcomingIndicator}>
+                          <Text style={styles.upcomingText}>
+                            Exam is scheduled for the future
+                          </Text>
+                        </View>
+                      </View>
+                    )}
                 </View>
               );
             })
@@ -593,9 +727,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
   },
+  quickAttendanceStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickAttendanceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  quickAttendanceText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
+  },
   batchDetails: {
     gap: 8,
     marginBottom: 12,
+  },
+  relativeTimeRow: {
+    marginTop: 4,
+    paddingLeft: 24,
+  },
+  relativeTimeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
+    fontStyle: 'italic',
   },
   attendanceSection: {
     marginTop: 16,
@@ -689,6 +848,48 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontStyle: 'italic',
     fontFamily: 'Inter-Regular',
+  },
+  ongoingSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  ongoingIndicator: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  ongoingText: {
+    fontSize: 14,
+    color: '#D97706',
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
+  },
+  upcomingSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  upcomingIndicator: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2563EB',
+  },
+  upcomingText: {
+    fontSize: 14,
+    color: '#1D4ED8',
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   addReviewCard: {
     backgroundColor: '#FFFFFF',

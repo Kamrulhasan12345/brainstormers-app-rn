@@ -34,9 +34,73 @@ export default function LecturesScreen() {
     'all' | 'today' | 'tomorrow' | 'this_week'
   >('all');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [attendanceFilter, setAttendanceFilter] = useState<string>('all');
   const [subjects, setSubjects] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
+
+  const calculateOverallAttendanceStatus = (lecture: any, userId: string) => {
+    if (!lecture.batches || lecture.batches.length === 0) {
+      return null; // No batches, no attendance status
+    }
+
+    // Check if student attended any batch first (immediate feedback)
+    let hasAnyAttendance = false;
+    let bestAttendanceStatus = 'absent';
+
+    for (const batch of lecture.batches) {
+      if (batch.attendances) {
+        const userAttendance = batch.attendances.find(
+          (att: any) => att.student_id === userId
+        );
+        if (
+          userAttendance &&
+          ['present', 'late', 'excused'].includes(userAttendance.status)
+        ) {
+          hasAnyAttendance = true;
+          // Priority: present > late > excused > absent
+          if (userAttendance.status === 'present') {
+            bestAttendanceStatus = 'present';
+            break; // Present is the best, no need to check further
+          } else if (
+            userAttendance.status === 'late' &&
+            bestAttendanceStatus !== 'present'
+          ) {
+            bestAttendanceStatus = 'late';
+          } else if (
+            userAttendance.status === 'excused' &&
+            !['present', 'late'].includes(bestAttendanceStatus)
+          ) {
+            bestAttendanceStatus = 'excused';
+          }
+        }
+      }
+    }
+
+    // If student has attended any batch, return the best status immediately
+    if (hasAnyAttendance) {
+      return bestAttendanceStatus;
+    }
+
+    // If no attendance found, check if all batches are completed to show 'absent'
+    const now = new Date();
+    const allBatchesCompleted = lecture.batches.every((batch: any) => {
+      if (batch.status === 'completed') return true;
+      if (batch.status === 'cancelled' || batch.status === 'postponed')
+        return false;
+
+      // Check if batch is past its end time
+      if (batch.end_time) {
+        const endTime = new Date(batch.end_time);
+        return now > endTime;
+      }
+      return false;
+    });
+
+    // Only show 'absent' if all batches are completed and student didn't attend any
+    return allBatchesCompleted ? 'absent' : null;
+  };
 
   const loadLectures = useCallback(async () => {
     try {
@@ -88,7 +152,44 @@ export default function LecturesScreen() {
             const batches = await lecturesManagementService.getLectureBatches(
               lecture.id
             );
-            const firstBatch = batches[0];
+
+            // Get attendance data for each batch
+            const batchesWithAttendance = await Promise.all(
+              batches.map(async (batch: any) => {
+                try {
+                  const attendances =
+                    await lecturesManagementService.getAttendanceForBatch(
+                      batch.id
+                    );
+                  return {
+                    ...batch,
+                    attendances: attendances || [],
+                  };
+                } catch (err) {
+                  console.error(
+                    `Error loading attendance for batch ${batch.id}:`,
+                    err
+                  );
+                  return {
+                    ...batch,
+                    attendances: [],
+                  };
+                }
+              })
+            );
+
+            const firstBatch = batchesWithAttendance[0];
+
+            // Calculate overall attendance status for this user
+            const overallAttendanceStatus = user?.id
+              ? calculateOverallAttendanceStatus(
+                  {
+                    ...lecture,
+                    batches: batchesWithAttendance,
+                  },
+                  user.id
+                )
+              : null;
 
             // Calculate duration from first batch times
             let duration = 'N/A';
@@ -154,7 +255,24 @@ export default function LecturesScreen() {
             let status = 'scheduled';
             const now = new Date();
 
-            if (firstBatch?.scheduled_at) {
+            // First check if student has already attended any batch of this lecture
+            const hasAttendedAnyBatch =
+              user?.id &&
+              batchesWithAttendance.some((batch: any) => {
+                return (
+                  batch.attendances &&
+                  batch.attendances.some(
+                    (att: any) =>
+                      att.student_id === user.id &&
+                      ['present', 'late', 'excused'].includes(att.status)
+                  )
+                );
+              });
+
+            if (hasAttendedAnyBatch) {
+              // If student has attended any batch, show as completed regardless of future batches
+              status = 'completed';
+            } else if (firstBatch?.scheduled_at) {
               const startTime = new Date(firstBatch.scheduled_at);
 
               // First check the batch status from database
@@ -190,7 +308,7 @@ export default function LecturesScreen() {
 
             return {
               ...lecture,
-              batches,
+              batches: batchesWithAttendance,
               duration,
               nextBatch: firstBatch,
               status,
@@ -198,6 +316,7 @@ export default function LecturesScreen() {
               date: lectureDate,
               time: lectureTime,
               attendees: firstBatch?.attendance_count || 0,
+              overallAttendanceStatus,
             };
           } catch (err) {
             console.error(
@@ -214,6 +333,7 @@ export default function LecturesScreen() {
               date: lecture.created_at,
               time: 'N/A',
               attendees: 0,
+              overallAttendanceStatus: null,
             };
           }
         })
@@ -280,6 +400,36 @@ export default function LecturesScreen() {
     }
   };
 
+  const getAttendanceStatusColor = (status: string) => {
+    switch (status) {
+      case 'present':
+        return '#059669';
+      case 'late':
+        return '#EA580C';
+      case 'absent':
+        return '#EF4444';
+      case 'excused':
+        return '#6366F1';
+      default:
+        return '#64748B';
+    }
+  };
+
+  const getAttendanceStatusText = (status: string) => {
+    switch (status) {
+      case 'present':
+        return 'Present';
+      case 'late':
+        return 'Late';
+      case 'absent':
+        return 'Absent';
+      case 'excused':
+        return 'Excused';
+      default:
+        return 'Unknown';
+    }
+  };
+
   const isToday = (dateString: string) => {
     const today = new Date();
     const lectureDate = new Date(dateString);
@@ -342,11 +492,25 @@ export default function LecturesScreen() {
       );
     }
 
+    // Apply attendance filter
+    if (attendanceFilter !== 'all') {
+      filtered = filtered.filter((lecture) => {
+        if (attendanceFilter === 'none') {
+          return !lecture.overallAttendanceStatus;
+        }
+        return lecture.overallAttendanceStatus === attendanceFilter;
+      });
+    }
+
     return filtered;
   };
 
   const handleLecturePress = (lecture: any) => {
     router.push(`/lectures/${lecture.id}`);
+  };
+
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
   };
 
   const renderSearchBar = () => {
@@ -447,6 +611,49 @@ export default function LecturesScreen() {
     );
   };
 
+  const renderAttendanceFilter = () => {
+    const attendanceOptions = [
+      { value: 'all', label: 'All' },
+      { value: 'present', label: 'Present' },
+      { value: 'late', label: 'Late' },
+      { value: 'absent', label: 'Absent' },
+      { value: 'excused', label: 'Excused' },
+      { value: 'none', label: 'No Status' },
+    ];
+
+    return (
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Attendance Filter:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {attendanceOptions.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.filterButton,
+                attendanceFilter === option.value && styles.filterButtonActive,
+              ]}
+              onPress={() => setAttendanceFilter(option.value)}
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  attendanceFilter === option.value &&
+                    styles.filterButtonTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderLectureCard = (lecture: any) => {
     return (
       <TouchableOpacity
@@ -458,15 +665,33 @@ export default function LecturesScreen() {
           <Text style={styles.lectureName}>
             {lecture.topic || lecture.subject}
           </Text>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: getStatusColor(lecture.status) },
-            ]}
-          >
-            <Text style={styles.statusText}>
-              {getStatusText(lecture.status)}
-            </Text>
+          <View style={styles.badgeContainer}>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getStatusColor(lecture.status) },
+              ]}
+            >
+              <Text style={styles.statusText}>
+                {getStatusText(lecture.status)}
+              </Text>
+            </View>
+            {lecture.overallAttendanceStatus && (
+              <View
+                style={[
+                  styles.attendanceBadge,
+                  {
+                    backgroundColor: getAttendanceStatusColor(
+                      lecture.overallAttendanceStatus
+                    ),
+                  },
+                ]}
+              >
+                <Text style={styles.attendanceText}>
+                  {getAttendanceStatusText(lecture.overallAttendanceStatus)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -483,14 +708,6 @@ export default function LecturesScreen() {
           <View style={styles.detailRow}>
             <Clock size={16} color="#64748B" />
             <Text style={styles.detailText}>{lecture.time}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Users size={16} color="#64748B" />
-            <Text style={styles.detailText}>{lecture.attendees} attendees</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <BookOpen size={16} color="#64748B" />
-            <Text style={styles.detailText}>{lecture.duration}</Text>
           </View>
         </View>
 
@@ -534,8 +751,11 @@ export default function LecturesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Lectures</Text>
-        <TouchableOpacity style={styles.filterIcon}>
-          <Filter size={24} color="#2563EB" />
+        <TouchableOpacity
+          style={[styles.filterIcon, showFilters && styles.filterIconActive]}
+          onPress={toggleFilters}
+        >
+          <Filter size={24} color={showFilters ? '#FFFFFF' : '#2563EB'} />
         </TouchableOpacity>
       </View>
 
@@ -547,8 +767,13 @@ export default function LecturesScreen() {
         showsVerticalScrollIndicator={false}
       >
         {renderSearchBar()}
-        {renderTimeFilter()}
-        {renderSubjectFilter()}
+        {showFilters && (
+          <>
+            {renderTimeFilter()}
+            {renderSubjectFilter()}
+            {renderAttendanceFilter()}
+          </>
+        )}
 
         <View style={styles.lecturesList}>
           {filteredLectures.length === 0 ? (
@@ -588,6 +813,10 @@ const styles = StyleSheet.create({
   },
   filterIcon: {
     padding: 8,
+  },
+  filterIconActive: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
   },
   scrollView: {
     flex: 1,
@@ -680,6 +909,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  badgeContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -687,6 +921,16 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  attendanceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  attendanceText: {
+    fontSize: 10,
     fontWeight: '500',
     color: '#FFFFFF',
   },

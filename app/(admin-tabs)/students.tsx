@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -274,7 +275,7 @@ export default function AdminStudentsScreen() {
     <View style={styles.studentCard}>
       <View style={styles.studentHeader}>
         <View style={styles.avatarContainer}>
-          <User size={24} color="#007AFF" />
+          <User size={24} color="#2563EB" />
         </View>
         <View style={styles.studentInfo}>
           <Text style={styles.studentName}>
@@ -290,7 +291,7 @@ export default function AdminStudentsScreen() {
             style={styles.actionButton}
             onPress={() => openEditModal(student)}
           >
-            <Edit size={16} color="#007AFF" />
+            <Edit size={16} color="#2563EB" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
@@ -310,20 +311,20 @@ export default function AdminStudentsScreen() {
       {/* Student Details */}
       <View style={styles.studentDetails}>
         <View style={styles.detailRow}>
-          <Phone size={14} color="#6B7280" />
+          <Phone size={14} color="#64748B" />
           <Text style={styles.detailText}>
             Role: {student.profile?.role || 'student'}
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <Calendar size={14} color="#6B7280" />
+          <Calendar size={14} color="#64748B" />
           <Text style={styles.detailText}>
             Created:{' '}
             {new Date(student.profile?.created_at || '').toLocaleDateString()}
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <BookOpen size={14} color="#6B7280" />
+          <BookOpen size={14} color="#64748B" />
           <Text style={styles.detailText}>
             {student.enrollments?.length || 0} courses enrolled
           </Text>
@@ -352,7 +353,7 @@ export default function AdminStudentsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.loadingText}>Loading students...</Text>
         </View>
       </SafeAreaView>
@@ -361,13 +362,14 @@ export default function AdminStudentsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <ArrowLeft size={24} color="#007AFF" />
+          <ArrowLeft size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Student Management</Text>
         <TouchableOpacity
@@ -380,7 +382,7 @@ export default function AdminStudentsScreen() {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Search size={20} color="#6B7280" />
+        <Search size={20} color="#64748B" />
         <TextInput
           style={styles.searchInput}
           placeholder="Search students..."
@@ -439,7 +441,7 @@ export default function AdminStudentsScreen() {
                 resetForm();
               }}
             >
-              <X size={24} color="#007AFF" />
+              <X size={24} color="#2563EB" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Add New Student</Text>
             <TouchableOpacity
@@ -533,7 +535,7 @@ export default function AdminStudentsScreen() {
                 resetForm();
               }}
             >
-              <X size={24} color="#007AFF" />
+              <X size={24} color="#2563EB" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Edit Student</Text>
             <TouchableOpacity
@@ -600,7 +602,7 @@ export default function AdminStudentsScreen() {
                 setSelectedCourseId('');
               }}
             >
-              <X size={24} color="#007AFF" />
+              <X size={24} color="#2563EB" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>
               Enroll {selectedStudent?.profile?.full_name || 'Student'}
@@ -687,7 +689,7 @@ export default function AdminStudentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   loadingContainer: {
     flex: 1,
@@ -695,9 +697,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: '#64748B',
   },
   header: {
     flexDirection: 'row',
@@ -707,46 +709,42 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 4,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1E293B',
   },
   addButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 20,
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     marginHorizontal: 20,
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   searchInput: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 8,
     fontSize: 16,
-    color: '#1F2937',
+    color: '#1E293B',
+    paddingVertical: 4,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -759,18 +757,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 16,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     alignItems: 'center',
   },
   statNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#007AFF',
+    color: '#2563EB',
   },
   statLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#64748B',
     marginTop: 4,
   },
   studentsList: {
@@ -781,9 +782,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   studentHeader: {
     flexDirection: 'row',
@@ -804,16 +808,16 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1E293B',
   },
   studentEmail: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#64748B',
     marginTop: 2,
   },
   studentId: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 2,
   },
   actionButtons: {
@@ -823,8 +827,8 @@ const styles = StyleSheet.create({
   actionButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -842,19 +846,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   detailText: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 14,
+    color: '#64748B',
   },
   coursesSection: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#E2E8F0',
   },
   coursesTitle: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: '600',
+    color: '#1E293B',
     marginBottom: 8,
   },
   coursesList: {
@@ -870,7 +874,7 @@ const styles = StyleSheet.create({
   },
   courseTagText: {
     fontSize: 12,
-    color: '#1D4ED8',
+    color: '#2563EB',
     fontWeight: '500',
   },
   emptyContainer: {
@@ -882,18 +886,18 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#D1D5DB',
+    color: '#64748B',
     marginTop: 8,
     textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -903,18 +907,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1E293B',
   },
   saveButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   saveButtonDisabled: {
     opacity: 0.5,
@@ -933,7 +937,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1E293B',
     marginBottom: 16,
   },
   inputGroup: {
@@ -941,19 +945,19 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: '600',
+    color: '#1E293B',
     marginBottom: 8,
   },
   input: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1F2937',
+    color: '#1E293B',
   },
   textArea: {
     height: 80,
@@ -969,7 +973,7 @@ const styles = StyleSheet.create({
   courseOption: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
     padding: 16,
     marginBottom: 8,
@@ -978,7 +982,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   courseOptionSelected: {
-    borderColor: '#007AFF',
+    borderColor: '#2563EB',
     backgroundColor: '#EFF6FF',
   },
   courseOptionContent: {
@@ -987,43 +991,43 @@ const styles = StyleSheet.create({
   courseOptionName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1E293B',
   },
   courseOptionNameSelected: {
-    color: '#007AFF',
+    color: '#2563EB',
   },
   courseOptionCode: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#64748B',
     marginTop: 2,
   },
   courseOptionCodeSelected: {
-    color: '#1D4ED8',
+    color: '#2563EB',
   },
   courseOptionDepartment: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 2,
   },
   courseOptionDepartmentSelected: {
-    color: '#60A5FA',
+    color: '#2563EB',
   },
   radioButton: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioButtonSelected: {
-    borderColor: '#007AFF',
+    borderColor: '#2563EB',
   },
   radioButtonInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#2563EB',
   },
 });

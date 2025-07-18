@@ -105,66 +105,194 @@ export default function HomeScreen() {
         return;
       }
 
-      // Get today's lecture batches
+      // Get today's lecture batches with lecture_id to count unique lectures
       const { data: lectureBatches, error: lectureError } = await supabase
         .from('lecture_batches')
-        .select('id, status, scheduled_at')
+        .select('id, status, scheduled_at, lecture_id')
         .gte('scheduled_at', todayStart)
         .lt('scheduled_at', todayEnd);
 
       if (lectureError) throw lectureError;
 
-      // Get today's exam batches
+      // Count unique lectures (not batches) - include completed ones only if completed today
+      const uniqueLectureIds = new Set(
+        lectureBatches?.map((batch) => batch.lecture_id) || []
+      );
+
+      // Get student's attendance records for ANY batch of these lectures
+      const { data: allLectureAttendances, error: allLectureAttendanceError } =
+        await supabase
+          .from('attendances')
+          .select(
+            'batch_id, status, recorded_at, lecture_batches!inner(lecture_id)'
+          )
+          .eq('student_id', user.id)
+          .in('status', ['present', 'late', 'excused']) // Count any attendance as completed
+          .in('lecture_batches.lecture_id', Array.from(uniqueLectureIds));
+
+      if (allLectureAttendanceError) throw allLectureAttendanceError;
+
+      // Get lecture IDs that student has attended, but only if attended today
+      const todayAttendedLectureIds = new Set();
+      const allAttendedLectureIds = new Set();
+
+      allLectureAttendances?.forEach((att) => {
+        const lectureId = (att as any).lecture_batches.lecture_id;
+        const attendanceDate = new Date(att.recorded_at);
+
+        allAttendedLectureIds.add(lectureId);
+
+        // Check if attendance was recorded today
+        if (
+          attendanceDate >= new Date(todayStart) &&
+          attendanceDate < new Date(todayEnd)
+        ) {
+          todayAttendedLectureIds.add(lectureId);
+        }
+      });
+
+      // Only count lectures that haven't been attended yet OR were completed today
+      const relevantLectureIds = new Set(
+        Array.from(uniqueLectureIds).filter(
+          (lectureId) =>
+            !allAttendedLectureIds.has(lectureId) || // Not attended yet
+            todayAttendedLectureIds.has(lectureId) // Or attended today
+        )
+      );
+      const uniqueLecturesCount = relevantLectureIds.size;
+
+      // Get today's exam batches with exam_id to count unique exams
       const { data: examBatches, error: examError } = await supabase
         .from('exam_batches')
-        .select('id, status, scheduled_start')
+        .select('id, status, scheduled_start, exam_id')
         .gte('scheduled_start', todayStart)
         .lt('scheduled_start', todayEnd);
 
       if (examError) throw examError;
 
+      // Count unique exams (not batches) - include completed ones only if completed today
+      const uniqueExamIds = new Set(
+        examBatches?.map((batch) => batch.exam_id) || []
+      );
+
+      // Get student's attendance records for ANY batch of these exams
+      const { data: allExamAttendances, error: allExamAttendanceError } =
+        await supabase
+          .from('exam_attendances')
+          .select('batch_id, status, recorded_at, exam_batches!inner(exam_id)')
+          .eq('student_id', user.id)
+          .in('status', ['present', 'late', 'excused']) // Count any attendance as completed
+          .in('exam_batches.exam_id', Array.from(uniqueExamIds));
+
+      if (allExamAttendanceError) throw allExamAttendanceError;
+
+      // Get exam IDs that student has attended, but only if attended today
+      const todayAttendedExamIds = new Set();
+      const allAttendedExamIds = new Set();
+
+      allExamAttendances?.forEach((att) => {
+        const examId = (att as any).exam_batches.exam_id;
+        const attendanceDate = new Date(att.recorded_at);
+
+        allAttendedExamIds.add(examId);
+
+        // Check if attendance was recorded today
+        if (
+          attendanceDate >= new Date(todayStart) &&
+          attendanceDate < new Date(todayEnd)
+        ) {
+          todayAttendedExamIds.add(examId);
+        }
+      });
+
+      // Only count exams that haven't been attended yet OR were completed today
+      const relevantExamIds = new Set(
+        Array.from(uniqueExamIds).filter(
+          (examId) =>
+            !allAttendedExamIds.has(examId) || // Not attended yet
+            todayAttendedExamIds.has(examId) // Or attended today
+        )
+      );
+      const uniqueExamsCount = relevantExamIds.size;
+
       // Get student's attendance records for today's lecture batches
       let completedLectures = 0;
       if (lectureBatches && lectureBatches.length > 0) {
-        const lectureBatchIds = lectureBatches.map((batch) => batch.id);
-        const { data: lectureAttendances, error: lectureAttendanceError } =
-          await supabase
-            .from('attendances')
-            .select('batch_id, status')
-            .eq('student_id', user.id)
-            .in('batch_id', lectureBatchIds)
-            .in('status', ['present', 'late']); // Count present and late as attended
+        // Count lectures that were attended today specifically (including those completed today from any batch)
+        const todayLectureBatchIds = lectureBatches.map((batch) => batch.id);
 
-        if (lectureAttendanceError) throw lectureAttendanceError;
-        completedLectures = lectureAttendances?.length || 0;
+        // Get today's batch attendances
+        const {
+          data: todayLectureAttendances,
+          error: todayLectureAttendanceError,
+        } = await supabase
+          .from('attendances')
+          .select('batch_id, status')
+          .eq('student_id', user.id)
+          .in('status', ['present', 'late', 'excused']) // Count any attendance as completed
+          .in('batch_id', todayLectureBatchIds);
+
+        if (todayLectureAttendanceError) throw todayLectureAttendanceError;
+
+        // Count today's batch attendances
+        const todayBatchAttendances = todayLectureAttendances?.length || 0;
+
+        // Add lectures that were completed today (from attendance created_at)
+        const todayCompletedFromPreviousBatches = Array.from(
+          todayAttendedLectureIds
+        ).filter((lectureId) =>
+          Array.from(uniqueLectureIds).includes(lectureId)
+        ).length;
+
+        // Use the higher count (either today's batches or today's completions)
+        completedLectures = Math.max(
+          todayBatchAttendances,
+          todayCompletedFromPreviousBatches
+        );
       }
 
       // Get student's attendance records for today's exam batches
       let completedExams = 0;
       if (examBatches && examBatches.length > 0) {
-        const examBatchIds = examBatches.map((batch) => batch.id);
-        const { data: examAttendances, error: examAttendanceError } =
+        // Count exams that were attended today specifically (including those completed today from any batch)
+        const todayExamBatchIds = examBatches.map((batch) => batch.id);
+
+        // Get today's batch attendances
+        const { data: todayExamAttendances, error: todayExamAttendanceError } =
           await supabase
             .from('exam_attendances')
             .select('batch_id, status')
             .eq('student_id', user.id)
-            .in('batch_id', examBatchIds)
-            .in('status', ['present', 'late']); // Count present and late as attended
+            .in('status', ['present', 'late', 'excused']) // Count any attendance as completed
+            .in('batch_id', todayExamBatchIds);
 
-        if (examAttendanceError) throw examAttendanceError;
-        completedExams = examAttendances?.length || 0;
+        if (todayExamAttendanceError) throw todayExamAttendanceError;
+
+        // Count today's batch attendances
+        const todayBatchAttendances = todayExamAttendances?.length || 0;
+
+        // Add exams that were completed today (from attendance created_at)
+        const todayCompletedFromPreviousBatches = Array.from(
+          todayAttendedExamIds
+        ).filter((examId) => Array.from(uniqueExamIds).includes(examId)).length;
+
+        // Use the higher count (either today's batches or today's completions)
+        completedExams = Math.max(
+          todayBatchAttendances,
+          todayCompletedFromPreviousBatches
+        );
       }
 
       console.log('Today Stats:', {
-        lecturesCount: lectureBatches?.length || 0,
-        examsCount: examBatches?.length || 0,
+        lecturesCount: uniqueLecturesCount,
+        examsCount: uniqueExamsCount,
         completedLectures,
         completedExams,
       });
 
       setTodayStats({
-        lecturesCount: lectureBatches?.length || 0,
-        examsCount: examBatches?.length || 0,
+        lecturesCount: uniqueLecturesCount,
+        examsCount: uniqueExamsCount,
         completedLectures,
         completedExams,
       });
@@ -221,7 +349,7 @@ export default function HomeScreen() {
         return;
       }
 
-      // Get student's attendance records for these lectures (from any batch)
+      // Get student's attendance records for ALL lectures (not just upcoming ones)
       const { data: attendances, error: attendanceError } = await supabase
         .from('attendances')
         .select(
@@ -332,7 +460,7 @@ export default function HomeScreen() {
         return;
       }
 
-      // Get student's attendance records for these exams (from any batch)
+      // Get student's attendance records for ALL exams (not just upcoming ones)
       const { data: attendances, error: attendanceError } = await supabase
         .from('exam_attendances')
         .select(

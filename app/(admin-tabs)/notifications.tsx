@@ -1,15 +1,42 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Send, Bell, Users, Calendar, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Send,
+  Bell,
+  Users,
+  Calendar,
+  TriangleAlert as AlertTriangle,
+  CircleCheck as CheckCircle,
+} from 'lucide-react-native';
 import { notificationService } from '@/services/notifications';
 
 const notificationTypes = [
   { id: 'exam', label: 'Exam Reminder', icon: Calendar, color: '#2563EB' },
-  { id: 'absence', label: 'Absence Alert', icon: AlertTriangle, color: '#EF4444' },
+  {
+    id: 'absence',
+    label: 'Absence Alert',
+    icon: AlertTriangle,
+    color: '#EF4444',
+  },
   { id: 'general', label: 'General Notice', icon: Bell, color: '#059669' },
-  { id: 'assignment', label: 'Assignment', icon: CheckCircle, color: '#EA580C' },
+  {
+    id: 'assignment',
+    label: 'Assignment',
+    icon: CheckCircle,
+    color: '#EA580C',
+  },
 ];
 
 const recipientGroups = [
@@ -68,7 +95,7 @@ export default function NotificationsScreen() {
     setIsSending(true);
     try {
       let scheduledFor = new Date();
-      
+
       if (scheduleDate && scheduleTime) {
         scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`);
       }
@@ -82,7 +109,7 @@ export default function NotificationsScreen() {
 
       Alert.alert(
         'Notification Scheduled',
-        scheduleDate && scheduleTime 
+        scheduleDate && scheduleTime
           ? `Notification will be sent on ${scheduledFor.toLocaleString()}`
           : 'Notification sent immediately',
         [{ text: 'OK' }]
@@ -101,29 +128,36 @@ export default function NotificationsScreen() {
   };
 
   const getTypeIcon = (type: string) => {
-    const typeConfig = notificationTypes.find(t => t.id === type);
+    const typeConfig = notificationTypes.find((t) => t.id === type);
     return typeConfig ? typeConfig.icon : Bell;
   };
 
   const getTypeColor = (type: string) => {
-    const typeConfig = notificationTypes.find(t => t.id === type);
+    const typeConfig = notificationTypes.find((t) => t.id === type);
     return typeConfig ? typeConfig.color : '#64748B';
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <ArrowLeft size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Send New Notification */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Send New Notification</Text>
-          
+
           <View style={styles.formCard}>
             {/* Notification Type */}
             <View style={styles.formGroup}>
@@ -135,17 +169,22 @@ export default function NotificationsScreen() {
                       key={type.id}
                       style={[
                         styles.typeChip,
-                        selectedType === type.id && styles.typeChipActive
+                        selectedType === type.id && styles.typeChipActive,
                       ]}
-                      onPress={() => setSelectedType(type.id)}>
-                      <type.icon 
-                        size={16} 
-                        color={selectedType === type.id ? '#FFFFFF' : type.color} 
+                      onPress={() => setSelectedType(type.id)}
+                    >
+                      <type.icon
+                        size={16}
+                        color={
+                          selectedType === type.id ? '#FFFFFF' : type.color
+                        }
                       />
-                      <Text style={[
-                        styles.typeText,
-                        selectedType === type.id && styles.typeTextActive
-                      ]}>
+                      <Text
+                        style={[
+                          styles.typeText,
+                          selectedType === type.id && styles.typeTextActive,
+                        ]}
+                      >
                         {type.label}
                       </Text>
                     </TouchableOpacity>
@@ -163,14 +202,24 @@ export default function NotificationsScreen() {
                     key={group.id}
                     style={[
                       styles.recipientChip,
-                      selectedRecipients === group.id && styles.recipientChipActive
+                      selectedRecipients === group.id &&
+                        styles.recipientChipActive,
                     ]}
-                    onPress={() => setSelectedRecipients(group.id)}>
-                    <Users size={14} color={selectedRecipients === group.id ? '#FFFFFF' : '#64748B'} />
-                    <Text style={[
-                      styles.recipientText,
-                      selectedRecipients === group.id && styles.recipientTextActive
-                    ]}>
+                    onPress={() => setSelectedRecipients(group.id)}
+                  >
+                    <Users
+                      size={14}
+                      color={
+                        selectedRecipients === group.id ? '#FFFFFF' : '#64748B'
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.recipientText,
+                        selectedRecipients === group.id &&
+                          styles.recipientTextActive,
+                      ]}
+                    >
                       {group.label} ({group.count})
                     </Text>
                   </TouchableOpacity>
@@ -227,9 +276,13 @@ export default function NotificationsScreen() {
 
             {/* Send Button */}
             <TouchableOpacity
-              style={[styles.sendButton, isSending && styles.sendButtonDisabled]}
+              style={[
+                styles.sendButton,
+                isSending && styles.sendButtonDisabled,
+              ]}
               onPress={handleSendNotification}
-              disabled={isSending}>
+              disabled={isSending}
+            >
               <Send size={20} color="#FFFFFF" />
               <Text style={styles.sendButtonText}>
                 {isSending ? 'Sending...' : 'Send Notification'}
@@ -244,7 +297,7 @@ export default function NotificationsScreen() {
           {recentNotifications.map((notification) => {
             const TypeIcon = getTypeIcon(notification.type);
             const typeColor = getTypeColor(notification.type);
-            
+
             return (
               <View key={notification.id} style={styles.notificationCard}>
                 <View style={styles.notificationHeader}>
@@ -252,7 +305,9 @@ export default function NotificationsScreen() {
                     <TypeIcon size={16} color={typeColor} />
                   </View>
                   <View style={styles.notificationInfo}>
-                    <Text style={styles.notificationTitle}>{notification.title}</Text>
+                    <Text style={styles.notificationTitle}>
+                      {notification.title}
+                    </Text>
                     <Text style={styles.notificationMeta}>
                       To: {notification.recipients} • {notification.sentAt}
                     </Text>
@@ -261,7 +316,9 @@ export default function NotificationsScreen() {
                     <Text style={styles.statusText}>SENT</Text>
                   </View>
                 </View>
-                <Text style={styles.notificationMessage}>{notification.message}</Text>
+                <Text style={styles.notificationMessage}>
+                  {notification.message}
+                </Text>
               </View>
             );
           })}
@@ -272,10 +329,12 @@ export default function NotificationsScreen() {
           <View style={styles.settingsCard}>
             <Text style={styles.settingsTitle}>Notification Settings</Text>
             <Text style={styles.settingsDescription}>
-              • Exam reminders are sent 24 hours, 2 hours, and 30 minutes before exams
+              • Exam reminders are sent 24 hours, 2 hours, and 30 minutes before
+              exams
             </Text>
             <Text style={styles.settingsDescription}>
-              • Absence alerts are sent immediately to guardians via SMS and email
+              • Absence alerts are sent immediately to guardians via SMS and
+              email
             </Text>
             <Text style={styles.settingsDescription}>
               • All notifications are logged for tracking and compliance

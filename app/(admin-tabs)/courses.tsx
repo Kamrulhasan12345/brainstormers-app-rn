@@ -10,6 +10,7 @@ import {
   Modal,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -204,6 +205,7 @@ export default function CoursesManagement() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -242,7 +244,7 @@ export default function CoursesManagement() {
         <View style={styles.coursesContainer}>
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#1E293B" />
+              <ActivityIndicator size="large" color="#2563EB" />
               <Text style={styles.loadingText}>Loading courses...</Text>
             </View>
           ) : filteredCourses.length === 0 ? (
@@ -479,33 +481,33 @@ const styles = StyleSheet.create({
   },
   searchSection: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
+    marginLeft: 8,
+    paddingVertical: 4,
   },
   scrollView: {
     flex: 1,
   },
   coursesContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
+    padding: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -514,7 +516,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 16,
     color: '#64748B',
   },
@@ -529,11 +531,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#0F172A',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   courseHeader: {
     flexDirection: 'row',
@@ -550,8 +552,8 @@ const styles = StyleSheet.create({
   courseCode: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#475569',
-    backgroundColor: '#F1F5F9',
+    color: '#2563EB',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -562,7 +564,7 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#E2E8F0',
   },
   stat: {
     flexDirection: 'row',
@@ -570,7 +572,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#64748B',
   },
   modalContainer: {
@@ -596,7 +598,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   formTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
     color: '#1E293B',
     marginBottom: 24,
@@ -606,8 +608,8 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#334155',
+    fontWeight: '600',
+    color: '#1E293B',
     marginBottom: 8,
   },
   textInput: {
@@ -616,7 +618,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E2E8F0',
     fontSize: 16,
     color: '#1E293B',
   },
@@ -632,18 +634,18 @@ const styles = StyleSheet.create({
   cancelButton: {
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 6,
     marginRight: 12,
   },
   cancelButtonText: {
-    color: '#334155',
+    color: '#64748B',
     fontWeight: '600',
   },
   saveButton: {
     backgroundColor: '#2563EB',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   saveButtonText: {
     color: '#FFFFFF',
@@ -671,7 +673,7 @@ const styles = StyleSheet.create({
   detailsSectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#334155',
+    color: '#1E293B',
     marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
@@ -685,7 +687,7 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
     padding: 16,
     borderRadius: 12,
     flex: 1,
@@ -708,10 +710,10 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   editButton: {
-    backgroundColor: '#1D4ED8',
+    backgroundColor: '#2563EB',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 12,
@@ -722,10 +724,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   deleteButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#EF4444',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
   },

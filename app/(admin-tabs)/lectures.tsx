@@ -11,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -30,6 +31,7 @@ import {
   XCircle,
   AlertCircle,
   Eye,
+  Filter,
 } from 'lucide-react-native';
 import { lecturesManagementService } from '@/services/lectures-management';
 import {
@@ -80,6 +82,7 @@ export default function LecturesManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [subjects, setSubjects] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingLecture, setEditingLecture] =
     useState<LectureWithDetails | null>(null);
@@ -257,6 +260,10 @@ export default function LecturesManagement() {
     return matchesSearch && matchesSubject;
   });
 
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
+  };
+
   const resetForm = () => {
     setFormData({
       subject: '',
@@ -380,7 +387,6 @@ export default function LecturesManagement() {
         <Text style={styles.detailsSectionTitle}>Basic Information</Text>
         <View style={styles.detailsGrid}>
           <View style={styles.detailItem}>
-            <BookOpen size={16} color="#64748B" />
             <Text style={styles.detailLabel}>Subject</Text>
             <Text style={styles.detailValue}>{lecture.subject}</Text>
           </View>
@@ -1399,6 +1405,7 @@ export default function LecturesManagement() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -1417,44 +1424,55 @@ export default function LecturesManagement() {
 
       {/* Search and Filters */}
       <View style={styles.searchSection}>
-        <View style={styles.searchBar}>
+        <View style={styles.searchContainer}>
           <Search size={20} color="#64748B" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search lectures..."
+            placeholder="Search lectures by topic, subject, or course..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#94A3B8"
           />
         </View>
+        <TouchableOpacity
+          style={[styles.filterIcon, showFilters && styles.filterIconActive]}
+          onPress={toggleFilters}
+        >
+          <Filter size={20} color={showFilters ? '#FFFFFF' : '#2563EB'} />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.filtersSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.filterContainer}>
-            <Text style={styles.filterLabel}>Subject:</Text>
+      {showFilters && (
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>Subject Filter:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+          >
             {['All', ...subjects].map((subject) => (
               <TouchableOpacity
                 key={subject}
                 style={[
-                  styles.filterChip,
-                  selectedSubject === subject && styles.filterChipActive,
+                  styles.filterButton,
+                  selectedSubject === subject && styles.filterButtonActive,
                 ]}
                 onPress={() => setSelectedSubject(subject)}
               >
                 <Text
                   style={[
-                    styles.filterText,
-                    selectedSubject === subject && styles.filterTextActive,
+                    styles.filterButtonText,
+                    selectedSubject === subject &&
+                      styles.filterButtonTextActive,
                   ]}
                 >
                   {subject}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </ScrollView>
-      </View>
+          </ScrollView>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -1473,16 +1491,17 @@ export default function LecturesManagement() {
               <Text style={styles.emptyText}>No lectures found</Text>
             </View>
           ) : (
-            filteredLectures.map((lecture) => (
+            filteredLectures.map((lecture, index) => (
               <TouchableOpacity
                 key={lecture.id}
-                style={styles.lectureCard}
+                style={[
+                  styles.lectureCard,
+                  index === 0 && styles.firstLectureCard,
+                ]}
                 onPress={() => setSelectedLecture(lecture)}
               >
                 <View style={styles.lectureHeader}>
-                  <View style={styles.lectureInfo}>
-                    <Text style={styles.subjectText}>{lecture.subject}</Text>
-                  </View>
+                  <Text style={styles.lectureTitle}>{lecture.topic}</Text>
                   <View style={styles.lectureActions}>
                     <TouchableOpacity
                       style={styles.actionButton}
@@ -1491,7 +1510,7 @@ export default function LecturesManagement() {
                         openEditModal(lecture);
                       }}
                     >
-                      <Edit size={16} color="#2563EB" />
+                      <Edit size={14} color="#2563EB" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.actionButton}
@@ -1500,15 +1519,12 @@ export default function LecturesManagement() {
                         handleDeleteLecture(lecture.id);
                       }}
                     >
-                      <Trash2 size={16} color="#EF4444" />
+                      <Trash2 size={14} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <Text style={styles.lectureTitle}>{lecture.topic}</Text>
-                <Text style={styles.courseText}>
-                  {lecture.course?.name} ({lecture.course?.code})
-                </Text>
+                <Text style={styles.subjectText}>{lecture.subject}</Text>
                 {lecture.chapter && (
                   <Text style={styles.chapterText}>
                     Chapter: {lecture.chapter}
@@ -1517,17 +1533,37 @@ export default function LecturesManagement() {
 
                 <View style={styles.lectureDetails}>
                   <View style={styles.detailRow}>
-                    <Calendar size={14} color="#64748B" />
+                    <Calendar size={16} color="#64748B" />
                     <Text style={styles.detailText}>
+                      Created{' '}
                       {new Date(lecture.created_at).toLocaleDateString()}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <BookOpen size={14} color="#64748B" />
+                    <BookOpen size={16} color="#64748B" />
                     <Text style={styles.detailText}>
                       {lecture.batches?.length || 0} batch(es)
                     </Text>
                   </View>
+                  <View style={styles.detailRow}>
+                    <Users size={16} color="#64748B" />
+                    <Text style={styles.detailText}>
+                      {lecture.course?.name}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.lectureFooter}>
+                  <View style={styles.footerActions}>
+                    <TouchableOpacity
+                      style={styles.batchButton}
+                      onPress={() => openBatchesModal(lecture)}
+                    >
+                      <Users size={16} color="#2563EB" />
+                      <Text style={styles.batchButtonText}>Batches</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.courseText}>{lecture.course?.code}</Text>
                 </View>
               </TouchableOpacity>
             ))
@@ -2046,8 +2082,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -2067,6 +2109,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
+    marginLeft: 8,
+    paddingVertical: 4,
   },
   filtersSection: {
     paddingLeft: 20,
@@ -2116,6 +2160,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  firstLectureCard: {
+    marginTop: 12,
   },
   lectureHeader: {
     flexDirection: 'row',
@@ -2939,5 +2986,88 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginBottom: 16,
     lineHeight: 20,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterIcon: {
+    padding: 8,
+  },
+  filterIconActive: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+  },
+  filterSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  filterScroll: {
+    paddingVertical: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterButtonActive: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#2563EB',
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#2563EB',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  filterButtonTextActive: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  lectureFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  footerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  batchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 6,
+    gap: 4,
+  },
+  batchButtonText: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '500',
   },
 });

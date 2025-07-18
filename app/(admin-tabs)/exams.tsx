@@ -13,6 +13,8 @@ import {
   Platform,
   BackHandler,
   RefreshControl,
+  ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -32,6 +34,10 @@ import {
   Clock,
   Star,
   MessageCircle,
+  Filter,
+  Target,
+  ChevronRight,
+  Eye,
 } from 'lucide-react-native';
 import {
   examManagementService,
@@ -51,7 +57,8 @@ export default function ExamsManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
@@ -243,6 +250,79 @@ export default function ExamsManagement() {
     return matchesSearch && matchesSubject;
   });
 
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
+  };
+
+  // Enhanced exam processing for admin view
+  const processExamWithBatches = async (exam: Exam) => {
+    try {
+      const batches = await examManagementService.getExamBatches(exam.id);
+
+      // Calculate admin-specific metrics
+      const totalBatches = batches.length;
+      const completedBatches = batches.filter(
+        (batch) => getBatchStatus(batch) === 'completed'
+      ).length;
+      const upcomingBatches = batches.filter(
+        (batch) => getBatchStatus(batch) === 'upcoming'
+      ).length;
+      const ongoingBatches = batches.filter(
+        (batch) => getBatchStatus(batch) === 'ongoing'
+      ).length;
+
+      // Get next upcoming batch
+      const nextBatch = batches
+        .filter((batch) => getBatchStatus(batch) === 'upcoming')
+        .sort(
+          (a, b) =>
+            new Date(a.scheduled_start).getTime() -
+            new Date(b.scheduled_start).getTime()
+        )[0];
+
+      // Calculate completion percentage
+      const completionPercentage =
+        totalBatches > 0
+          ? Math.round((completedBatches / totalBatches) * 100)
+          : 0;
+
+      // Determine overall exam status
+      let overallStatus = 'scheduled';
+      if (completedBatches === totalBatches && totalBatches > 0) {
+        overallStatus = 'completed';
+      } else if (ongoingBatches > 0) {
+        overallStatus = 'ongoing';
+      } else if (upcomingBatches > 0) {
+        overallStatus = 'upcoming';
+      }
+
+      return {
+        ...exam,
+        batches,
+        totalBatches,
+        completedBatches,
+        upcomingBatches,
+        ongoingBatches,
+        nextBatch,
+        completionPercentage,
+        overallStatus,
+      };
+    } catch (error) {
+      console.error(`Error processing exam ${exam.id}:`, error);
+      return {
+        ...exam,
+        batches: [],
+        totalBatches: 0,
+        completedBatches: 0,
+        upcomingBatches: 0,
+        ongoingBatches: 0,
+        nextBatch: null,
+        completionPercentage: 0,
+        overallStatus: 'scheduled',
+      };
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -356,10 +436,50 @@ export default function ExamsManagement() {
 
   const handleViewAttendance = async (batch: ExamBatch) => {
     try {
+      // Get the exam details first
+      const exam =
+        examBatches.find((b) => b.id === batch.id)?.exam || selectedExam;
+
+      if (!exam) {
+        Alert.alert('Error', 'Exam not found');
+        return;
+      }
+
+      // Get existing attendance data
       const attendanceData = await examManagementService.getExamAttendances(
         batch.id
       );
-      setAttendances(attendanceData);
+
+      // Get all students enrolled in the course
+      const allCourseStudents =
+        await examManagementService.getStudentsForCourse(exam.course_id);
+
+      // Create attendance records for all students
+      const completeAttendances = allCourseStudents.map((student: any) => {
+        const existingRecord = attendanceData.find(
+          (att: any) => att.student_id === student.id
+        );
+
+        if (existingRecord) {
+          return {
+            ...existingRecord,
+            student: student,
+          };
+        } else {
+          // Create default record for students without attendance
+          return {
+            id: `default-${student.id}`,
+            student_id: student.id,
+            batch_id: batch.id,
+            status: 'absent' as const,
+            score: 0,
+            student: student,
+            recorded_at: new Date().toISOString(),
+          };
+        }
+      });
+
+      setAttendances(completeAttendances);
       setSelectedBatch(batch);
       setShowAttendanceModal(true);
     } catch (error) {
@@ -668,6 +788,23 @@ export default function ExamsManagement() {
         </View>
       </View>
 
+      <View style={styles.detailsSection}>
+        <Text style={styles.detailsSectionTitle}>Exam Batches</Text>
+        <Text style={styles.detailText}>
+          Manage and view batches for this exam
+        </Text>
+        <TouchableOpacity
+          style={styles.batchButton}
+          onPress={() => {
+            setSelectedExam(null);
+            handleViewBatches(exam);
+          }}
+        >
+          <Eye size={16} color="#2563EB" />
+          <Text style={styles.batchButtonText}>View Batches</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.detailsActions}>
         <TouchableOpacity
           style={styles.editButton}
@@ -693,6 +830,7 @@ export default function ExamsManagement() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -701,32 +839,45 @@ export default function ExamsManagement() {
           <ArrowLeft size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Exams Management</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <Plus size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <Plus size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Search and Filters */}
+      {/* Search Bar */}
       <View style={styles.searchSection}>
-        <View style={styles.searchBar}>
+        <View style={styles.searchContainer}>
           <Search size={20} color="#64748B" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search exams..."
+            placeholder="Search exams by name, subject, or topic..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#94A3B8"
           />
         </View>
+        <TouchableOpacity
+          style={[styles.filterIcon, showFilters && styles.filterIconActive]}
+          onPress={toggleFilters}
+        >
+          <Filter size={20} color={showFilters ? '#FFFFFF' : '#2563EB'} />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.filtersSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.filterContainer}>
-            <Text style={styles.filterLabel}>Subject:</Text>
+      {/* Filters */}
+      {showFilters && (
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>Subject Filter:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+          >
             {[
               'All',
               ...Array.from(new Set(exams.map((exam) => exam.subject))),
@@ -734,24 +885,32 @@ export default function ExamsManagement() {
               <TouchableOpacity
                 key={subject}
                 style={[
-                  styles.filterChip,
-                  selectedSubject === subject && styles.filterChipActive,
+                  styles.filterButton,
+                  (selectedSubject === 'All' && subject === 'All') ||
+                  selectedSubject === subject
+                    ? styles.filterButtonActive
+                    : null,
                 ]}
-                onPress={() => setSelectedSubject(subject)}
+                onPress={() =>
+                  setSelectedSubject(subject === 'All' ? 'All' : subject)
+                }
               >
                 <Text
                   style={[
-                    styles.filterText,
-                    selectedSubject === subject && styles.filterTextActive,
+                    styles.filterButtonText,
+                    (selectedSubject === 'All' && subject === 'All') ||
+                    selectedSubject === subject
+                      ? styles.filterButtonTextActive
+                      : null,
                   ]}
                 >
                   {subject}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </ScrollView>
-      </View>
+          </ScrollView>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -765,14 +924,17 @@ export default function ExamsManagement() {
           />
         }
       >
-        <View style={styles.examsContainer}>
+        <View style={styles.examsList}>
           {loading ? (
             <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#2563EB" />
               <Text style={styles.loadingText}>Loading exams...</Text>
             </View>
           ) : filteredExams.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No exams found</Text>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                No exams found for the selected filters
+              </Text>
             </View>
           ) : (
             filteredExams.map((exam) => (
@@ -782,74 +944,80 @@ export default function ExamsManagement() {
                 onPress={() => setSelectedExam(exam)}
               >
                 <View style={styles.examHeader}>
-                  <View style={styles.examInfo}>
-                    <Text style={styles.examSubject}>{exam.subject}</Text>
-                  </View>
-                  <View style={styles.examActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        openEditModal(exam);
-                      }}
-                    >
-                      <Edit size={16} color="#2563EB" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDeleteExam(exam.id);
-                      }}
-                    >
-                      <Trash2 size={16} color="#EF4444" />
-                    </TouchableOpacity>
+                  <Text style={styles.examName}>{exam.name}</Text>
+                  <View style={styles.badgeContainer}>
+                    <View style={styles.examActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          openEditModal(exam);
+                        }}
+                      >
+                        <Edit size={14} color="#2563EB" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeleteExam(exam.id);
+                        }}
+                      >
+                        <Trash2 size={14} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
 
-                <Text style={styles.examTitle}>{exam.name}</Text>
-                {exam.topic && (
-                  <Text style={styles.examTopic}>{exam.topic}</Text>
-                )}
+                <Text style={styles.examSubject}>{exam.subject}</Text>
                 {exam.chapter && (
                   <Text style={styles.examChapter}>
                     Chapter: {exam.chapter}
                   </Text>
                 )}
+                {exam.topic && (
+                  <Text style={styles.examTopic}>{exam.topic}</Text>
+                )}
 
                 <View style={styles.examDetails}>
                   <View style={styles.detailRow}>
-                    <BookOpen size={14} color="#64748B" />
-                    <Text style={styles.detailText}>{exam.course?.name}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Calendar size={14} color="#64748B" />
+                    <Calendar size={16} color="#64748B" />
                     <Text style={styles.detailText}>
-                      {new Date(exam.created_at).toLocaleDateString()}
+                      Created {new Date(exam.created_at).toLocaleDateString()}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Star size={14} color="#64748B" />
+                    <Target size={16} color="#64748B" />
                     <Text style={styles.detailText}>
-                      Total Marks: {exam.total_marks}
+                      {exam.total_marks} marks
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Users size={14} color="#64748B" />
-                    <TouchableOpacity onPress={() => handleViewBatches(exam)}>
-                      <Text style={[styles.detailText, styles.linkText]}>
-                        View Batches
-                      </Text>
+                    <BookOpen size={16} color="#64748B" />
+                    <Text style={styles.detailText}>
+                      {exam.course?.name || 'No Course'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.examFooter}>
+                  <View style={styles.examActions}>
+                    <TouchableOpacity
+                      style={styles.batchButton}
+                      onPress={() => handleViewBatches(exam)}
+                    >
+                      <Users size={16} color="#2563EB" />
+                      <Text style={styles.batchButtonText}>Batches</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.reviewButton}
+                      onPress={() => handleOpenReviews(exam)}
+                    >
+                      <MessageCircle size={16} color="#059669" />
+                      <Text style={styles.reviewButtonText}>Reviews</Text>
                     </TouchableOpacity>
                   </View>
-                  <View style={styles.detailRow}>
-                    <MessageCircle size={14} color="#64748B" />
-                    <TouchableOpacity onPress={() => handleOpenReviews(exam)}>
-                      <Text style={[styles.detailText, styles.linkText]}>
-                        Reviews
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <ChevronRight size={20} color="#64748B" />
                 </View>
               </TouchableOpacity>
             ))
@@ -1187,79 +1355,107 @@ export default function ExamsManagement() {
                 <View key={batch.id} style={styles.batchCard}>
                   <View style={styles.batchHeader}>
                     <Text style={styles.batchTime}>
-                      {new Date(batch.scheduled_start).toLocaleString()} -{' '}
-                      {new Date(batch.scheduled_end).toLocaleString()}
+                      {new Date(batch.scheduled_start).toLocaleDateString(
+                        'en-US',
+                        {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        }
+                      )}
                     </Text>
                     <View
                       style={[
                         styles.statusBadge,
                         {
-                          backgroundColor: getStatusBgColor(
+                          backgroundColor: getStatusColor(
                             getBatchStatus(batch)
                           ),
                         },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.statusText,
-                          { color: getStatusColor(getBatchStatus(batch)) },
-                        ]}
-                      >
+                      <Text style={styles.statusText}>
                         {getBatchStatus(batch).toUpperCase()}
                       </Text>
                     </View>
                   </View>
-                  {batch.notes && (
-                    <Text style={styles.batchNotes}>{batch.notes}</Text>
-                  )}
-                  <View style={styles.batchActions}>
-                    <TouchableOpacity
-                      style={styles.attendanceButton}
-                      onPress={() => handleViewAttendance(batch)}
-                    >
-                      <Users size={16} color="#FFFFFF" />
-                      <Text style={styles.attendanceButtonText}>
-                        View Attendance
+
+                  <View style={styles.batchDetails}>
+                    <View style={styles.detailRow}>
+                      <Clock size={16} color="#64748B" />
+                      <Text style={styles.detailText}>
+                        {new Date(batch.scheduled_start).toLocaleTimeString(
+                          'en-US',
+                          {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          }
+                        )}{' '}
+                        -{' '}
+                        {new Date(batch.scheduled_end).toLocaleTimeString(
+                          'en-US',
+                          {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          }
+                        )}
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.attendanceButton,
-                        { backgroundColor: '#10B981' },
-                        loadingBatchId === batch.id &&
-                          styles.attendanceButtonDisabled,
-                      ]}
-                      onPress={() => handleOpenBatchAttendance(batch)}
-                      disabled={loadingBatchId === batch.id}
-                    >
-                      <CheckCircle size={16} color="#FFFFFF" />
-                      <Text style={styles.attendanceButtonText}>
-                        {loadingBatchId === batch.id
-                          ? 'Loading...'
-                          : 'Mark Attendance'}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.attendanceButton,
-                        { backgroundColor: '#F59E0B' },
-                      ]}
-                      onPress={() => handleEditBatch(batch)}
-                    >
-                      <Edit size={16} color="#FFFFFF" />
-                      <Text style={styles.attendanceButtonText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.attendanceButton,
-                        { backgroundColor: '#EF4444' },
-                      ]}
-                      onPress={() => handleDeleteBatch(batch.id)}
-                    >
-                      <Trash2 size={16} color="#FFFFFF" />
-                      <Text style={styles.attendanceButtonText}>Delete</Text>
-                    </TouchableOpacity>
+                    </View>
+                    {batch.notes && (
+                      <View style={styles.detailRow}>
+                        <MessageCircle size={16} color="#64748B" />
+                        <Text style={styles.detailText}>{batch.notes}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.batchFooter}>
+                    <View style={styles.batchActions}>
+                      <TouchableOpacity
+                        style={styles.attendanceButton}
+                        onPress={() => handleViewAttendance(batch)}
+                      >
+                        <Users size={16} color="#FFFFFF" />
+                        <Text style={styles.attendanceButtonText}>View</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.attendanceButton,
+                          { backgroundColor: '#10B981' },
+                          loadingBatchId === batch.id &&
+                            styles.attendanceButtonDisabled,
+                        ]}
+                        onPress={() => handleOpenBatchAttendance(batch)}
+                        disabled={loadingBatchId === batch.id}
+                      >
+                        <CheckCircle size={16} color="#FFFFFF" />
+                        <Text style={styles.attendanceButtonText}>
+                          {loadingBatchId === batch.id ? 'Loading...' : 'Mark'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.attendanceButton,
+                          { backgroundColor: '#F59E0B' },
+                        ]}
+                        onPress={() => handleEditBatch(batch)}
+                      >
+                        <Edit size={16} color="#FFFFFF" />
+                        <Text style={styles.attendanceButtonText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.attendanceButton,
+                          { backgroundColor: '#EF4444' },
+                        ]}
+                        onPress={() => handleDeleteBatch(batch.id)}
+                      >
+                        <Trash2 size={16} color="#FFFFFF" />
+                        <Text style={styles.attendanceButtonText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               ))
@@ -1689,8 +1885,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -1710,7 +1912,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
-    fontFamily: 'Inter-Regular',
+    marginLeft: 8,
+    paddingVertical: 4,
   },
   filtersSection: {
     paddingLeft: 20,
@@ -1779,9 +1982,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
   typeBadge: {
     paddingHorizontal: 8,
@@ -2215,14 +2418,12 @@ const styles = StyleSheet.create({
   examTopic: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   examChapter: {
     fontSize: 14,
     color: '#64748B',
-    fontFamily: 'Inter-Regular',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   linkText: {
     color: '#2563EB',
@@ -2239,28 +2440,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   batchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
   batchTime: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1E293B',
-    fontFamily: 'Inter-SemiBold',
     flex: 1,
+    marginRight: 12,
   },
-  batchNotes: {
-    fontSize: 14,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
+  batchDetails: {
     marginBottom: 12,
+  },
+  batchFooter: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
   },
   batchActions: {
     flexDirection: 'row',
@@ -2273,19 +2476,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#2563EB',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-    marginBottom: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
   },
   attendanceButtonDisabled: {
     backgroundColor: '#94A3B8',
   },
   attendanceButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    fontWeight: '500',
   },
   attendanceContainer: {
     flex: 1,
@@ -2346,7 +2547,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
     marginBottom: 8,
-    borderRadius: 16,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     backgroundColor: '#F8FAFC',
@@ -2459,5 +2660,128 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  // New modern styles
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterIcon: {
+    padding: 8,
+  },
+  filterIconActive: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  filterScroll: {
+    flexDirection: 'row',
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterButtonActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  filterButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  examsList: {
+    padding: 20,
+  },
+  examName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    flex: 1,
+    marginRight: 12,
+  },
+  badgeContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  examFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  batchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  batchButtonText: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  reviewButtonText: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  courseText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#475569',
   },
 });

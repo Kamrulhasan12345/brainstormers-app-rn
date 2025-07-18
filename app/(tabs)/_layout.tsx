@@ -103,6 +103,18 @@ export default function TabLayout() {
           href: null, // This hides the tab from the tab bar
         }}
       />
+      <Tabs.Screen
+        name="qna"
+        options={{
+          href: null, // This hides the tab from the tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="editprofile"
+        options={{
+          href: null, // This hides the tab from the tab bar
+        }}
+      />
     </Tabs>
   );
 }

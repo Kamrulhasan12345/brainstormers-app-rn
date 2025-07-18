@@ -483,7 +483,7 @@ export default function EditProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Personal Information */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.firstSection]}>
           <View style={styles.sectionHeader}>
             <User size={20} color="#2563EB" />
             <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -571,6 +571,9 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
     paddingHorizontal: 20,
+  },
+  firstSection: {
+    paddingTop: 24,
   },
   sectionHeader: {
     flexDirection: 'row',

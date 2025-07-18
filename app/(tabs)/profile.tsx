@@ -241,7 +241,7 @@ export default function ProfileScreen() {
   const handleMenuItemPress = (item: any) => {
     switch (item.id) {
       case 1: // Edit Profile
-        router.push('/EditProfile');
+        router.push('/editprofile');
         break;
       case 2: // Notifications
         // Navigate to notifications

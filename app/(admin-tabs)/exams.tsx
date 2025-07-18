@@ -250,7 +250,7 @@ export default function ExamsManagement() {
       subject: '',
       chapter: '',
       topic: '',
-      total_marks: '',
+      total_marks: '100',
     });
   };
 
@@ -626,119 +626,6 @@ export default function ExamsManagement() {
     setShowAddBatchModal(true);
   };
 
-  const ExamForm = () => (
-    <ScrollView style={styles.formContainer}>
-      <Text style={styles.formTitle}>
-        {editingExam ? 'Edit Exam' : 'Create New Exam'}
-      </Text>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Course *</Text>
-        <View style={styles.pickerContainer}>
-          {courses.map((course) => (
-            <TouchableOpacity
-              key={course.id}
-              style={[
-                styles.pickerOption,
-                formData.course_id === course.id && styles.pickerOptionActive,
-              ]}
-              onPress={() => setFormData({ ...formData, course_id: course.id })}
-            >
-              <Text
-                style={[
-                  styles.pickerOptionText,
-                  formData.course_id === course.id &&
-                    styles.pickerOptionTextActive,
-                ]}
-              >
-                {course.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Name *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.name}
-          onChangeText={(text) => setFormData({ ...formData, name: text })}
-          placeholder="Enter exam name"
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Subject *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.subject}
-          onChangeText={(text) => setFormData({ ...formData, subject: text })}
-          placeholder="Enter subject"
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Total Marks *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.total_marks}
-          onChangeText={(text) =>
-            setFormData({ ...formData, total_marks: text })
-          }
-          placeholder="Enter total marks"
-          placeholderTextColor="#94A3B8"
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Chapter</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.chapter}
-          onChangeText={(text) => setFormData({ ...formData, chapter: text })}
-          placeholder="Enter chapter"
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Topic</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.topic}
-          onChangeText={(text) => setFormData({ ...formData, topic: text })}
-          placeholder="Enter topic"
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formButtons}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => {
-            setShowAddModal(false);
-            setEditingExam(null);
-            resetForm();
-          }}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={editingExam ? handleEditExam : handleAddExam}
-        >
-          <Text style={styles.saveButtonText}>
-            {editingExam ? 'Update' : 'Create'} Exam
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-
   const ExamDetails = ({ exam }: { exam: Exam }) => (
     <ScrollView style={styles.detailsContainer}>
       <View style={styles.detailsHeader}>
@@ -970,14 +857,287 @@ export default function ExamsManagement() {
         </View>
       </ScrollView>
 
-      {/* Add/Edit Modal */}
+      {/* Add Exam Modal */}
       <Modal
-        visible={showAddModal || !!editingExam}
+        visible={showAddModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowAddModal(false);
+          resetForm();
+        }}
       >
         <SafeAreaView style={styles.modalContainer}>
-          <ExamForm />
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowAddModal(false);
+                resetForm();
+              }}
+            >
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Add New Exam</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView style={styles.formContainer}>
+            <Text style={styles.formTitle}>Create New Exam</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course *</Text>
+              <View style={styles.pickerContainer}>
+                {courses.map((course) => (
+                  <TouchableOpacity
+                    key={course.id}
+                    style={[
+                      styles.pickerOption,
+                      formData.course_id === course.id &&
+                        styles.pickerOptionActive,
+                    ]}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, course_id: course.id }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.pickerOptionText,
+                        formData.course_id === course.id &&
+                          styles.pickerOptionTextActive,
+                      ]}
+                    >
+                      {course.name} ({course.code})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.name}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, name: text }))
+                }
+                placeholder="Enter exam name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Subject *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.subject}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, subject: text }))
+                }
+                placeholder="Enter subject"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Total Marks *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.total_marks}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, total_marks: text }))
+                }
+                placeholder="Enter total marks"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Chapter</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.chapter}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, chapter: text }))
+                }
+                placeholder="Enter chapter"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Topic</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.topic}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, topic: text }))
+                }
+                placeholder="Enter topic"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowAddModal(false);
+                  resetForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleAddExam}
+              >
+                <Text style={styles.saveButtonText}>Create Exam</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Edit Exam Modal */}
+      <Modal
+        visible={!!editingExam}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setEditingExam(null);
+          resetForm();
+        }}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                setEditingExam(null);
+                resetForm();
+              }}
+            >
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Edit Exam</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView style={styles.formContainer}>
+            <Text style={styles.formTitle}>Edit Exam Details</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course *</Text>
+              <View style={styles.pickerContainer}>
+                {courses.map((course) => (
+                  <TouchableOpacity
+                    key={course.id}
+                    style={[
+                      styles.pickerOption,
+                      formData.course_id === course.id &&
+                        styles.pickerOptionActive,
+                    ]}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, course_id: course.id }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.pickerOptionText,
+                        formData.course_id === course.id &&
+                          styles.pickerOptionTextActive,
+                      ]}
+                    >
+                      {course.name} ({course.code})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.name}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, name: text }))
+                }
+                placeholder="Enter exam name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Subject *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.subject}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, subject: text }))
+                }
+                placeholder="Enter subject"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Total Marks *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.total_marks}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, total_marks: text }))
+                }
+                placeholder="Enter total marks"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Chapter</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.chapter}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, chapter: text }))
+                }
+                placeholder="Enter chapter"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Topic</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.topic}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, topic: text }))
+                }
+                placeholder="Enter topic"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setEditingExam(null);
+                  resetForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleEditExam}
+              >
+                <Text style={styles.saveButtonText}>Update Exam</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
 
@@ -1481,7 +1641,7 @@ export default function ExamsManagement() {
                 style={[styles.textInput, styles.textArea]}
                 value={batchFormData.notes}
                 onChangeText={(text) =>
-                  setBatchFormData({ ...batchFormData, notes: text })
+                  setBatchFormData((prev) => ({ ...prev, notes: text }))
                 }
                 placeholder="Enter notes (optional)..."
                 placeholderTextColor="#94A3B8"

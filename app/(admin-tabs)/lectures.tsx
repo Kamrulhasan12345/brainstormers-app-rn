@@ -108,29 +108,42 @@ export default function LecturesManagement() {
   };
 
   // Calculate the actual status of a batch based on its scheduled time
-  const calculateBatchStatus = (batch: LectureBatchWithDetails): 'upcoming' | 'ongoing' | 'completed' | 'postponed' | 'cancelled' | 'not_held' => {
+  const calculateBatchStatus = (
+    batch: LectureBatchWithDetails
+  ):
+    | 'upcoming'
+    | 'ongoing'
+    | 'completed'
+    | 'postponed'
+    | 'cancelled'
+    | 'not_held' => {
     const now = new Date();
     const scheduledTime = new Date(batch.scheduled_at);
-    
+
     // If manually set to completed, postponed, cancelled, or not_held, respect that
-    if (batch.status === 'completed' || batch.status === 'postponed' || batch.status === 'cancelled' || batch.status === 'not_held') {
+    if (
+      batch.status === 'completed' ||
+      batch.status === 'postponed' ||
+      batch.status === 'cancelled' ||
+      batch.status === 'not_held'
+    ) {
       return batch.status;
     }
-    
+
     // Calculate time difference
     const timeDiff = now.getTime() - scheduledTime.getTime();
     const hoursDiff = timeDiff / (1000 * 60 * 60);
-    
+
     // If the lecture hasn't started yet (more than 15 minutes before)
     if (hoursDiff < -0.25) {
       return 'upcoming';
     }
-    
+
     // If the lecture has started but not been marked as complete (within 4 hours of start time)
     if (hoursDiff >= -0.25 && hoursDiff < 4) {
       return 'ongoing';
     }
-    
+
     // If it's been more than 4 hours and not marked complete, consider it not held
     return 'not_held';
   };
@@ -139,9 +152,9 @@ export default function LecturesManagement() {
   const canMarkComplete = (batch: LectureBatchWithDetails): boolean => {
     const now = new Date();
     const scheduledTime = new Date(batch.scheduled_at);
-    
+
     // Can only mark complete if the start time has passed (with 15 minutes buffer)
-    return now.getTime() >= (scheduledTime.getTime() - 15 * 60 * 1000);
+    return now.getTime() >= scheduledTime.getTime() - 15 * 60 * 1000;
   };
 
   // Form state
@@ -356,107 +369,6 @@ export default function LecturesManagement() {
     setSelectedBatch(batch);
     setShowNotesModal(true);
   };
-
-  const LectureForm = () => (
-    <ScrollView style={styles.formContainer}>
-      <Text style={styles.formTitle}>
-        {editingLecture ? 'Edit Lecture' : 'Add New Lecture'}
-      </Text>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Subject *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.subject}
-          onChangeText={(text) => setFormData({ ...formData, subject: text })}
-          placeholder="Enter subject name"
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Topic *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.topic}
-          onChangeText={(text) => setFormData({ ...formData, topic: text })}
-          placeholder="Enter lecture topic"
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Chapter</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.chapter}
-          onChangeText={(text) => setFormData({ ...formData, chapter: text })}
-          placeholder="Enter chapter name"
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Course *</Text>
-        <View style={styles.pickerContainer}>
-          {courses.map((course) => (
-            <TouchableOpacity
-              key={course.id}
-              style={[
-                styles.pickerOption,
-                formData.courseId === course.id && styles.pickerOptionActive,
-              ]}
-              onPress={() => setFormData({ ...formData, courseId: course.id })}
-            >
-              <Text
-                style={[
-                  styles.pickerOptionText,
-                  formData.courseId === course.id &&
-                    styles.pickerOptionTextActive,
-                ]}
-              >
-                {course.name} ({course.code})
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Notes</Text>
-        <TextInput
-          style={[styles.textInput, styles.textArea]}
-          value={formData.notes}
-          onChangeText={(text) => setFormData({ ...formData, notes: text })}
-          placeholder="Enter lecture notes"
-          multiline
-          numberOfLines={3}
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-
-      <View style={styles.formButtons}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => {
-            setShowAddModal(false);
-            setEditingLecture(null);
-            resetForm();
-          }}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={editingLecture ? handleEditLecture : handleAddLecture}
-        >
-          <Text style={styles.saveButtonText}>
-            {editingLecture ? 'Update' : 'Add'} Lecture
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
 
   const LectureDetails = ({ lecture }: { lecture: LectureWithDetails }) => (
     <ScrollView style={styles.detailsContainer}>
@@ -692,125 +604,135 @@ export default function LecturesManagement() {
             batches.map((batch) => {
               const actualStatus = calculateBatchStatus(batch);
               const canComplete = canMarkComplete(batch);
-              
+
               return (
-              <View key={batch.id} style={styles.batchCard}>
-                <View style={styles.batchHeader}>
-                  <Text style={styles.batchDate}>
-                    {new Date(batch.scheduled_at).toLocaleDateString()}
-                  </Text>
-                  <View style={styles.batchHeaderActions}>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: getStatusBgColor(actualStatus) },
-                      ]}
-                    >
-                      <Text
+                <View key={batch.id} style={styles.batchCard}>
+                  <View style={styles.batchHeader}>
+                    <Text style={styles.batchDate}>
+                      {new Date(batch.scheduled_at).toLocaleDateString()}
+                    </Text>
+                    <View style={styles.batchHeaderActions}>
+                      <View
                         style={[
-                          styles.statusText,
-                          { color: getStatusColor(actualStatus) },
+                          styles.statusBadge,
+                          { backgroundColor: getStatusBgColor(actualStatus) },
                         ]}
                       >
-                        {actualStatus.toUpperCase()}
+                        <Text
+                          style={[
+                            styles.statusText,
+                            { color: getStatusColor(actualStatus) },
+                          ]}
+                        >
+                          {actualStatus.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.batchActions}>
+                        <TouchableOpacity
+                          style={styles.batchEditButton}
+                          onPress={() => handleEditBatch(batch)}
+                        >
+                          <Edit size={12} color="#2563EB" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.batchDeleteButton}
+                          onPress={() => handleDeleteBatch(batch.id)}
+                        >
+                          <Trash2 size={12} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+
+                  <Text style={styles.batchTime}>
+                    {new Date(batch.scheduled_at).toLocaleTimeString()}
+                  </Text>
+
+                  {batch.notes && (
+                    <Text style={styles.batchNotes}>{batch.notes}</Text>
+                  )}
+
+                  <View style={styles.batchStats}>
+                    <View style={styles.batchStat}>
+                      <Text style={styles.batchStatNumber}>
+                        {batch.attendance_count || 0}
                       </Text>
+                      <Text style={styles.batchStatLabel}>Students</Text>
                     </View>
-                    <View style={styles.batchActions}>
-                      <TouchableOpacity
-                        style={styles.batchEditButton}
-                        onPress={() => handleEditBatch(batch)}
-                      >
-                        <Edit size={12} color="#2563EB" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.batchDeleteButton}
-                        onPress={() => handleDeleteBatch(batch.id)}
-                      >
-                        <Trash2 size={12} color="#EF4444" />
-                      </TouchableOpacity>
+                    <View style={styles.batchStat}>
+                      <Text style={styles.batchStatNumber}>
+                        {Math.round(batch.attendance_rate || 0)}%
+                      </Text>
+                      <Text style={styles.batchStatLabel}>Attendance</Text>
+                    </View>
+                    <View style={styles.batchStat}>
+                      <Text style={styles.batchStatNumber}>
+                        {batch.reviews?.length || 0}
+                      </Text>
+                      <Text style={styles.batchStatLabel}>Reviews</Text>
+                    </View>
+                    <View style={styles.batchStat}>
+                      <Text style={styles.batchStatNumber}>
+                        {Array.isArray(batch.lecture_notes)
+                          ? batch.lecture_notes.length
+                          : 0}
+                      </Text>
+                      <Text style={styles.batchStatLabel}>Notes</Text>
                     </View>
                   </View>
-                </View>
 
-                <Text style={styles.batchTime}>
-                  {new Date(batch.scheduled_at).toLocaleTimeString()}
-                </Text>
-
-                {batch.notes && (
-                  <Text style={styles.batchNotes}>{batch.notes}</Text>
-                )}
-
-                <View style={styles.batchStats}>
-                  <View style={styles.batchStat}>
-                    <Text style={styles.batchStatNumber}>
-                      {batch.attendance_count || 0}
-                    </Text>
-                    <Text style={styles.batchStatLabel}>Students</Text>
-                  </View>
-                  <View style={styles.batchStat}>
-                    <Text style={styles.batchStatNumber}>
-                      {Math.round(batch.attendance_rate || 0)}%
-                    </Text>
-                    <Text style={styles.batchStatLabel}>Attendance</Text>
-                  </View>
-                  <View style={styles.batchStat}>
-                    <Text style={styles.batchStatNumber}>
-                      {batch.reviews?.length || 0}
-                    </Text>
-                    <Text style={styles.batchStatLabel}>Reviews</Text>
-                  </View>
-                  <View style={styles.batchStat}>
-                    <Text style={styles.batchStatNumber}>
-                      {Array.isArray(batch.lecture_notes)
-                        ? batch.lecture_notes.length
-                        : 0}
-                    </Text>
-                    <Text style={styles.batchStatLabel}>Notes</Text>
-                  </View>
-                </View>
-
-                <View style={styles.batchActions}>
-                  <TouchableOpacity
-                    style={styles.attendanceButton}
-                    onPress={() => openAttendanceModal(batch)}
-                  >
-                    <Users size={14} color="#FFFFFF" />
-                    <Text style={styles.attendanceButtonText}>Attendance</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.reviewsButton}
-                    onPress={() => openReviewsModal(batch)}
-                  >
-                    <BookOpen size={14} color="#FFFFFF" />
-                    <Text style={styles.reviewsButtonText}>Reviews</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.notesButton}
-                    onPress={() => openNotesModal(batch)}
-                  >
-                    <BookOpen size={14} color="#FFFFFF" />
-                    <Text style={styles.notesButtonText}>Notes</Text>
-                  </TouchableOpacity>
-                  {(actualStatus === 'ongoing' || actualStatus === 'upcoming') && canComplete && (
+                  <View style={styles.batchActions}>
                     <TouchableOpacity
-                      style={styles.completeButton}
-                      onPress={() => handleStatusUpdate(batch.id, 'completed')}
+                      style={styles.attendanceButton}
+                      onPress={() => openAttendanceModal(batch)}
                     >
-                      <CheckCircle size={14} color="#FFFFFF" />
-                      <Text style={styles.completeButtonText}>Complete</Text>
+                      <Users size={14} color="#FFFFFF" />
+                      <Text style={styles.attendanceButtonText}>
+                        Attendance
+                      </Text>
                     </TouchableOpacity>
-                  )}
-                  {!canComplete && actualStatus === 'upcoming' && (
                     <TouchableOpacity
-                      style={[styles.completeButton, styles.disabledButton]}
-                      disabled={true}
+                      style={styles.reviewsButton}
+                      onPress={() => openReviewsModal(batch)}
                     >
-                      <Clock size={14} color="#94A3B8" />
-                      <Text style={styles.disabledButtonText}>Not Started</Text>
+                      <BookOpen size={14} color="#FFFFFF" />
+                      <Text style={styles.reviewsButtonText}>Reviews</Text>
                     </TouchableOpacity>
-                  )}
+                    <TouchableOpacity
+                      style={styles.notesButton}
+                      onPress={() => openNotesModal(batch)}
+                    >
+                      <BookOpen size={14} color="#FFFFFF" />
+                      <Text style={styles.notesButtonText}>Notes</Text>
+                    </TouchableOpacity>
+                    {(actualStatus === 'ongoing' ||
+                      actualStatus === 'upcoming') &&
+                      canComplete && (
+                        <TouchableOpacity
+                          style={styles.completeButton}
+                          onPress={() =>
+                            handleStatusUpdate(batch.id, 'completed')
+                          }
+                        >
+                          <CheckCircle size={14} color="#FFFFFF" />
+                          <Text style={styles.completeButtonText}>
+                            Complete
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    {!canComplete && actualStatus === 'upcoming' && (
+                      <TouchableOpacity
+                        style={[styles.completeButton, styles.disabledButton]}
+                        disabled={true}
+                      >
+                        <Clock size={14} color="#94A3B8" />
+                        <Text style={styles.disabledButtonText}>
+                          Not Started
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
               );
             })
           )}
@@ -1613,14 +1535,13 @@ export default function LecturesManagement() {
         </View>
       </ScrollView>
 
-      {/* Modals */}
+      {/* Add Lecture Modal */}
       <Modal
-        visible={showAddModal || !!editingLecture}
+        visible={showAddModal}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => {
           setShowAddModal(false);
-          setEditingLecture(null);
           resetForm();
         }}
       >
@@ -1629,18 +1550,248 @@ export default function LecturesManagement() {
             <TouchableOpacity
               onPress={() => {
                 setShowAddModal(false);
+                resetForm();
+              }}
+            >
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Add New Lecture</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView style={styles.formContainer}>
+            <Text style={styles.formTitle}>Create New Lecture</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Subject *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.subject}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, subject: text }))
+                }
+                placeholder="Enter subject name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Topic *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.topic}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, topic: text }))
+                }
+                placeholder="Enter lecture topic"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Chapter</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.chapter}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, chapter: text }))
+                }
+                placeholder="Enter chapter name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course *</Text>
+              <View style={styles.pickerContainer}>
+                {courses.map((course) => (
+                  <TouchableOpacity
+                    key={course.id}
+                    style={[
+                      styles.pickerOption,
+                      formData.courseId === course.id &&
+                        styles.pickerOptionActive,
+                    ]}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, courseId: course.id }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.pickerOptionText,
+                        formData.courseId === course.id &&
+                          styles.pickerOptionTextActive,
+                      ]}
+                    >
+                      {course.name} ({course.code})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Notes</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={formData.notes}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, notes: text }))
+                }
+                placeholder="Enter lecture notes"
+                multiline
+                numberOfLines={3}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowAddModal(false);
+                  resetForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleAddLecture}
+              >
+                <Text style={styles.saveButtonText}>Create Lecture</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Edit Lecture Modal */}
+      <Modal
+        visible={!!editingLecture}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setEditingLecture(null);
+          resetForm();
+        }}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => {
                 setEditingLecture(null);
                 resetForm();
               }}
             >
               <ArrowLeft size={24} color="#1E293B" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>
-              {editingLecture ? 'Edit Lecture' : 'Add New Lecture'}
-            </Text>
+            <Text style={styles.modalTitle}>Edit Lecture</Text>
             <View style={{ width: 24 }} />
           </View>
-          <LectureForm />
+          <ScrollView style={styles.formContainer}>
+            <Text style={styles.formTitle}>Edit Lecture Details</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Subject *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.subject}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, subject: text }))
+                }
+                placeholder="Enter subject name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Topic *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.topic}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, topic: text }))
+                }
+                placeholder="Enter lecture topic"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Chapter</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.chapter}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, chapter: text }))
+                }
+                placeholder="Enter chapter name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course *</Text>
+              <View style={styles.pickerContainer}>
+                {courses.map((course) => (
+                  <TouchableOpacity
+                    key={course.id}
+                    style={[
+                      styles.pickerOption,
+                      formData.courseId === course.id &&
+                        styles.pickerOptionActive,
+                    ]}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, courseId: course.id }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.pickerOptionText,
+                        formData.courseId === course.id &&
+                          styles.pickerOptionTextActive,
+                      ]}
+                    >
+                      {course.name} ({course.code})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Notes</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={formData.notes}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, notes: text }))
+                }
+                placeholder="Enter lecture notes"
+                multiline
+                numberOfLines={3}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setEditingLecture(null);
+                  resetForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleEditLecture}
+              >
+                <Text style={styles.saveButtonText}>Update Lecture</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
 
@@ -1838,7 +1989,7 @@ const CreateBatchModal = ({
               style={[styles.textInput, styles.textArea]}
               value={batchFormData.notes}
               onChangeText={(text) =>
-                setBatchFormData({ ...batchFormData, notes: text })
+                setBatchFormData((prev) => ({ ...prev, notes: text }))
               }
               placeholder="Enter batch notes..."
               multiline

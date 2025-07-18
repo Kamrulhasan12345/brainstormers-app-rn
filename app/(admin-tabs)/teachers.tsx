@@ -364,7 +364,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.email}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, email: text })
+                    setFormData((prev) => ({ ...prev, email: text }))
                   }
                   placeholder="teacher@example.com"
                   keyboardType="email-address"
@@ -377,7 +377,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.password}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, password: text })
+                    setFormData((prev) => ({ ...prev, password: text }))
                   }
                   placeholder="Enter password"
                   secureTextEntry
@@ -389,7 +389,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.fullName}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, fullName: text })
+                    setFormData((prev) => ({ ...prev, fullName: text }))
                   }
                   placeholder="Jane Doe"
                 />
@@ -400,7 +400,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.designation}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, designation: text })
+                    setFormData((prev) => ({ ...prev, designation: text }))
                   }
                   placeholder="Professor, Lecturer, etc."
                 />
@@ -411,7 +411,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.department}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, department: text })
+                    setFormData((prev) => ({ ...prev, department: text }))
                   }
                   placeholder="Mathematics, Physics, etc."
                 />
@@ -464,7 +464,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.fullName}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, fullName: text })
+                    setFormData((prev) => ({ ...prev, fullName: text }))
                   }
                   placeholder="Jane Doe"
                 />
@@ -475,7 +475,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.designation}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, designation: text })
+                    setFormData((prev) => ({ ...prev, designation: text }))
                   }
                   placeholder="Professor, Lecturer, etc."
                 />
@@ -486,7 +486,7 @@ export default function AdminTeachersScreen() {
                   style={styles.input}
                   value={formData.department}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, department: text })
+                    setFormData((prev) => ({ ...prev, department: text }))
                   }
                   placeholder="Mathematics, Physics, etc."
                 />

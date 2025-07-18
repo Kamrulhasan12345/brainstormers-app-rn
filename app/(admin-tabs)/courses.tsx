@@ -147,57 +147,7 @@ export default function CoursesManagement() {
       name: course.name,
       code: course.code,
     });
-    setShowAddModal(true);
   };
-
-  const CourseForm = () => (
-    <ScrollView style={styles.formContainer}>
-      <Text style={styles.formTitle}>
-        {editingCourse ? 'Edit Course' : 'Add New Course'}
-      </Text>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Course Name *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.name}
-          onChangeText={(text) => setFormData({ ...formData, name: text })}
-          placeholder="e.g., Introduction to React Native"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.formLabel}>Course Code *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.code}
-          onChangeText={(text) => setFormData({ ...formData, code: text })}
-          placeholder="e.g., CS101"
-        />
-      </View>
-
-      <View style={styles.formButtons}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => {
-            setShowAddModal(false);
-            setEditingCourse(null);
-            resetForm();
-          }}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={editingCourse ? handleEditCourse : handleAddCourse}
-        >
-          <Text style={styles.saveButtonText}>
-            {editingCourse ? 'Update Course' : 'Add Course'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
 
   const CourseDetails = ({ course }: { course: CourseWithDetails }) => (
     <ScrollView style={styles.detailsContainer}>
@@ -328,14 +278,13 @@ export default function CoursesManagement() {
         </View>
       </ScrollView>
 
-      {/* Add/Edit Modal */}
+      {/* Add Course Modal */}
       <Modal
-        visible={showAddModal || !!editingCourse}
+        visible={showAddModal}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => {
           setShowAddModal(false);
-          setEditingCourse(null);
           resetForm();
         }}
       >
@@ -344,18 +293,134 @@ export default function CoursesManagement() {
             <TouchableOpacity
               onPress={() => {
                 setShowAddModal(false);
+                resetForm();
+              }}
+            >
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Add New Course</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView style={styles.formContainer}>
+            <Text style={styles.formTitle}>Create New Course</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.name}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, name: text }))
+                }
+                placeholder="e.g., Introduction to React Native"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course Code *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.code}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, code: text }))
+                }
+                placeholder="e.g., CS101"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowAddModal(false);
+                  resetForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleAddCourse}
+              >
+                <Text style={styles.saveButtonText}>Add Course</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Edit Course Modal */}
+      <Modal
+        visible={!!editingCourse}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setEditingCourse(null);
+          resetForm();
+        }}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => {
                 setEditingCourse(null);
                 resetForm();
               }}
             >
               <ArrowLeft size={24} color="#1E293B" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>
-              {editingCourse ? 'Edit Course' : 'Add New Course'}
-            </Text>
+            <Text style={styles.modalTitle}>Edit Course</Text>
             <View style={{ width: 24 }} />
           </View>
-          <CourseForm />
+          <ScrollView style={styles.formContainer}>
+            <Text style={styles.formTitle}>Edit Course Details</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.name}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, name: text }))
+                }
+                placeholder="e.g., Introduction to React Native"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Course Code *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.code}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, code: text }))
+                }
+                placeholder="e.g., CS101"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setEditingCourse(null);
+                  resetForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleEditCourse}
+              >
+                <Text style={styles.saveButtonText}>Update Course</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
 

@@ -469,7 +469,7 @@ export default function AdminStudentsScreen() {
                   style={styles.input}
                   value={formData.email}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, email: text })
+                    setFormData((prev) => ({ ...prev, email: text }))
                   }
                   placeholder="student@example.com"
                   keyboardType="email-address"
@@ -483,7 +483,7 @@ export default function AdminStudentsScreen() {
                   style={styles.input}
                   value={formData.password}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, password: text })
+                    setFormData((prev) => ({ ...prev, password: text }))
                   }
                   placeholder="Enter password"
                   secureTextEntry
@@ -496,7 +496,7 @@ export default function AdminStudentsScreen() {
                   style={styles.input}
                   value={formData.fullName}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, fullName: text })
+                    setFormData((prev) => ({ ...prev, fullName: text }))
                   }
                   placeholder="John Doe"
                 />
@@ -508,7 +508,7 @@ export default function AdminStudentsScreen() {
                   style={styles.input}
                   value={formData.roll}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, roll: text })
+                    setFormData((prev) => ({ ...prev, roll: text }))
                   }
                   placeholder="2024-STU-0001"
                 />
@@ -563,7 +563,7 @@ export default function AdminStudentsScreen() {
                   style={styles.input}
                   value={formData.fullName}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, fullName: text })
+                    setFormData((prev) => ({ ...prev, fullName: text }))
                   }
                   placeholder="John Doe"
                 />
@@ -575,7 +575,7 @@ export default function AdminStudentsScreen() {
                   style={styles.input}
                   value={formData.roll}
                   onChangeText={(text) =>
-                    setFormData({ ...formData, roll: text })
+                    setFormData((prev) => ({ ...prev, roll: text }))
                   }
                   placeholder="2024-STU-0001"
                 />

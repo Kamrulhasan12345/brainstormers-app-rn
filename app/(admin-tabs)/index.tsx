@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { BookOpen, Calendar, Users, Bell, LogOut } from 'lucide-react-native';
 import { adminStatsService } from '@/services/admin-stats';
 
@@ -25,6 +26,26 @@ interface AdminStats {
   totalExams: number;
   completedExams: number;
   averageAttendanceRate: number;
+}
+
+// NotificationButton component with badge
+function NotificationButton({ onPress }: { onPress: () => void }) {
+  const { unreadCount } = useNotifications();
+
+  return (
+    <TouchableOpacity style={styles.iconButton} onPress={onPress}>
+      <View style={styles.notificationIconContainer}>
+        <Bell size={24} color="#64748B" />
+        {unreadCount > 0 && (
+          <View style={styles.notificationBadge}>
+            <Text style={styles.notificationBadgeText}>
+              {unreadCount > 99 ? '99+' : unreadCount.toString()}
+            </Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 export default function AdminDashboard() {
@@ -52,6 +73,10 @@ export default function AdminDashboard() {
 
     loadAdminStats();
   }, [user, router]);
+
+  const handleNotificationPress = () => {
+    router.push('/(admin-tabs)/notifications');
+  };
 
   const loadAdminStats = async () => {
     try {
@@ -123,9 +148,7 @@ export default function AdminDashboard() {
             <Text style={styles.roleText}>Administrator</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Bell size={24} color="#64748B" />
-            </TouchableOpacity>
+            <NotificationButton onPress={handleNotificationPress} />
             <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
               <LogOut size={24} color="#64748B" />
             </TouchableOpacity>
@@ -338,5 +361,26 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
+  },
+  notificationIconContainer: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
   },
 });

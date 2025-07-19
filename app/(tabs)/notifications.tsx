@@ -7,13 +7,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   SectionList,
-  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useNotifications } from '../../hooks/useNotifications';
 import NotificationItem from '../../components/NotificationItem';
-import { BellOff, Calendar, FileText, Send } from 'lucide-react-native';
+import { BellOff, Calendar, FileText } from 'lucide-react-native';
 
 interface Notification {
   id: string;
@@ -32,7 +31,7 @@ interface GroupedNotifications {
   data: Notification[];
 }
 
-export default function AdminNotificationsScreen() {
+export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [groupBy, setGroupBy] = useState<'type' | 'date'>('date');
   const router = useRouter();
@@ -69,10 +68,6 @@ export default function AdminNotificationsScreen() {
         console.error('Error navigating to link:', error);
       }
     }
-  };
-
-  const handleManageNotifications = () => {
-    router.push('/notification-management');
   };
 
   const getGroupedNotifications = (): GroupedNotifications[] => {
@@ -160,7 +155,7 @@ export default function AdminNotificationsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#DC2626" />
+          <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
       </SafeAreaView>
@@ -187,8 +182,6 @@ export default function AdminNotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Notifications</Text>
@@ -202,12 +195,6 @@ export default function AdminNotificationsScreen() {
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleManageNotifications}
-          >
-            <Send size={16} color="#DC2626" />
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[
               styles.groupButton,
               groupBy === 'date' && styles.groupButtonActive,
@@ -216,7 +203,7 @@ export default function AdminNotificationsScreen() {
           >
             <Calendar
               size={16}
-              color={groupBy === 'date' ? '#FFFFFF' : '#DC2626'}
+              color={groupBy === 'date' ? '#FFFFFF' : '#2563EB'}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -228,7 +215,7 @@ export default function AdminNotificationsScreen() {
           >
             <FileText
               size={16}
-              color={groupBy === 'type' ? '#FFFFFF' : '#DC2626'}
+              color={groupBy === 'type' ? '#FFFFFF' : '#2563EB'}
             />
           </TouchableOpacity>
         </View>
@@ -241,13 +228,6 @@ export default function AdminNotificationsScreen() {
           <Text style={styles.emptyStateText}>
             You&apos;re all caught up! Check back later for updates.
           </Text>
-          <TouchableOpacity
-            style={styles.manageButton}
-            onPress={handleManageNotifications}
-          >
-            <Send size={20} color="#FFFFFF" />
-            <Text style={styles.manageButtonText}>Send Notification</Text>
-          </TouchableOpacity>
         </View>
       ) : (
         <SectionList
@@ -259,7 +239,7 @@ export default function AdminNotificationsScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#DC2626']}
+              colors={['#2563EB']}
               progressBackgroundColor="#F8FAFC"
             />
           }
@@ -297,7 +277,7 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   unreadBadge: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#EF4444',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -313,13 +293,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  actionButton: {
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DC2626',
-    backgroundColor: '#FEF2F2',
-  },
   groupButton: {
     padding: 8,
     borderRadius: 8,
@@ -328,8 +301,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   groupButtonActive: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
   loadingContainer: {
     flex: 1,
@@ -349,12 +322,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#DC2626',
+    color: '#EF4444',
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
@@ -382,21 +355,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 24,
-  },
-  manageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  manageButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
   listContent: {
     padding: 20,

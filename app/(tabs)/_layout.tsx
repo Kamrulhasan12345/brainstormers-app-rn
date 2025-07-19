@@ -1,16 +1,19 @@
 import { Tabs, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import {
   Chrome as Home,
   BookOpen,
   Calendar,
-  MessageCircle,
   User,
+  Bell,
 } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { isAuthenticated, user } = useAuth();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
 
   useEffect(() => {
@@ -21,11 +24,30 @@ export default function TabLayout() {
     } else if (user?.role === 'teacher') {
       router.replace('/(teacher-tabs)');
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, router]);
 
   if (!isAuthenticated || user?.role === 'admin' || user?.role === 'teacher') {
     return null;
   }
+
+  const NotificationIcon = ({
+    size,
+    color,
+  }: {
+    size: number;
+    color: string;
+  }) => (
+    <View style={{ position: 'relative' }}>
+      <Bell size={size} color={color} />
+      {unreadCount > 0 && (
+        <View style={styles.badgeContainer}>
+          <Text style={styles.badgeText}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 
   return (
     <Tabs
@@ -70,6 +92,15 @@ export default function TabLayout() {
           title: 'Exams',
           tabBarIcon: ({ size, color }) => (
             <Calendar size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          tabBarIcon: ({ size, color }) => (
+            <NotificationIcon size={size} color={color} />
           ),
         }}
       />
@@ -118,3 +149,23 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  badgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});

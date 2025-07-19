@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../hooks/useNotifications';
 import { supabase } from '../../lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -74,6 +75,7 @@ interface TodayStats {
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -595,6 +597,10 @@ export default function HomeScreen() {
     router.push('/profile');
   };
 
+  const handleNotificationsPress = () => {
+    router.push('/notifications');
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -618,8 +624,20 @@ export default function HomeScreen() {
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Bell size={24} color="#64748B" />
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleNotificationsPress}
+          >
+            <View style={styles.notificationIconContainer}>
+              <Bell size={24} color="#64748B" />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
@@ -945,5 +963,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     fontWeight: '500',
+  },
+  notificationIconContainer: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

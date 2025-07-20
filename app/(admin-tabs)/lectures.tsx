@@ -146,9 +146,9 @@ export default function LecturesManagement() {
     if (hoursDiff >= -0.25 && hoursDiff < 4) {
       return 'ongoing';
     }
-
+    return 'ongoing'
     // If it's been more than 4 hours and not marked complete, consider it not held
-    return 'not_held';
+    // return 'not_held';
   };
 
   // Check if a batch can be marked as complete

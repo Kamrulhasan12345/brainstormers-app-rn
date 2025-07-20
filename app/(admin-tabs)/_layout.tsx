@@ -1,35 +1,15 @@
 import { Tabs, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotifications } from '@/hooks/useNotifications';
 import { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import {
   LayoutDashboard,
   Users,
   Calendar,
   BookOpen,
-  Bell,
   GraduationCap,
   UserCog,
+  Send,
 } from 'lucide-react-native';
-
-// NotificationIcon component with badge
-function NotificationIcon({ size, color }: { size: number; color: string }) {
-  const { unreadCount } = useNotifications();
-
-  return (
-    <View style={styles.iconContainer}>
-      <Bell size={size} color={color} />
-      {unreadCount > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>
-            {unreadCount > 99 ? '99+' : unreadCount.toString()}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
 
 export default function AdminTabLayout() {
   const { isAuthenticated, user } = useAuth();
@@ -131,30 +111,13 @@ export default function AdminTabLayout() {
           href: null, // This hides the tab from the tab bar
         }}
       />
+      <Tabs.Screen
+        name="admin_notifications"
+        options={{
+          title: 'Send Notifications',
+          tabBarIcon: ({ size, color }) => <Send size={size} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  iconContainer: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#DC2626',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 16,
-  },
-});

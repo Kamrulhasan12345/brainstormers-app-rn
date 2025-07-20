@@ -88,8 +88,10 @@ export default function LectureDetailsScreen() {
       return 'ongoing';
     }
 
+    return 'ongoing';
+
     // If it's been more than 4 hours and not marked complete, consider it not held
-    return 'not_held';
+    // return 'not_held';
   };
 
   const loadLectureData = useCallback(async () => {

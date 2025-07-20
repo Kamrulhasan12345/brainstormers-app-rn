@@ -128,10 +128,7 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
-          tabBarIcon: ({ size, color }) => (
-            <NotificationIcon size={size} color={color} />
-          ),
+          href: null, // This hides the tab from the tab bar
         }}
       />
     </Tabs>

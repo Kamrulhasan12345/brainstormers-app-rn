@@ -30,25 +30,6 @@ export default function TabLayout() {
     return null;
   }
 
-  const NotificationIcon = ({
-    size,
-    color,
-  }: {
-    size: number;
-    color: string;
-  }) => (
-    <View style={{ position: 'relative' }}>
-      <Bell size={size} color={color} />
-      {unreadCount > 0 && (
-        <View style={styles.badgeContainer}>
-          <Text style={styles.badgeText}>
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-
   return (
     <Tabs
       screenOptions={{
@@ -95,15 +76,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: 'Notifications',
-          tabBarIcon: ({ size, color }) => (
-            <NotificationIcon size={size} color={color} />
-          ),
-        }}
-      />
+      
       {/* <Tabs.Screen
         name="qna"
         options={{
@@ -142,6 +115,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="editprofile"
+        options={{
+          href: null, // This hides the tab from the tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
         options={{
           href: null, // This hides the tab from the tab bar
         }}

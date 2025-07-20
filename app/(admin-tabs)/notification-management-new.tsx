@@ -78,7 +78,7 @@ interface Student {
   roll?: string;
   email?: string;
   profile?: { full_name?: string };
-  enrollments?: { course?: { id: string; name: string; code: string } }[];
+  enrollments?: Array<{ course?: { id: string; name: string; code: string } }>;
 }
 
 interface Course {
@@ -130,6 +130,8 @@ export default function NotificationManagementScreen() {
   // Data state
   const [students, setStudents] = useState<Student[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [lectures, setLectures] = useState<Lecture[]>([]);
   const [recipientGroups, setRecipientGroups] = useState<RecipientGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -138,7 +140,13 @@ export default function NotificationManagementScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showRecipientModal, setShowRecipientModal] = useState(false);
-  const [selectedCourse] = useState<string>('all');
+  const [selectedCourse, setSelectedCourse] = useState<string>('all');
+  const [selectedExam, setSelectedExam] = useState<string>('all');
+  const [selectedLecture, setSelectedLecture] = useState<string>('all');
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -154,6 +162,8 @@ export default function NotificationManagementScreen() {
 
       setStudents(studentsData as Student[]);
       setCourses(coursesData);
+      setExams(examsData);
+      setLectures(lecturesData as Lecture[]);
 
       // Generate recipient groups
       await generateRecipientGroups(
@@ -169,10 +179,6 @@ export default function NotificationManagementScreen() {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const generateRecipientGroups = async (
     studentsData: Student[],
@@ -359,6 +365,16 @@ export default function NotificationManagementScreen() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const getTypeIcon = (type: string) => {
+    const typeConfig = notificationTypes.find((t) => t.id === type);
+    return typeConfig ? typeConfig.icon : Bell;
+  };
+
+  const getTypeColor = (type: string) => {
+    const typeConfig = notificationTypes.find((t) => t.id === type);
+    return typeConfig ? typeConfig.color : '#64748B';
   };
 
   const toggleRecipientSelection = (recipientId: string) => {

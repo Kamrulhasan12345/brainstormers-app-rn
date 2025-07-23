@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AuthState, User, LoginCredentials } from '@/types/auth';
+import { AuthState, LoginCredentials } from '@/types/auth';
 import { authService } from '@/services/auth';
 import { supabase } from '@/lib/supabase';
+import { connectionCleanupService } from '@/services/connection-cleanup';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -139,7 +140,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      console.log('Logout initiated');
+      console.log('Logout initiated - starting graceful shutdown');
+
+      // First, get connection status before cleanup
+      const connectionStatus = connectionCleanupService.getStatus();
+      console.log('Active connections before logout:', connectionStatus);
 
       // Immediately clear the state to prevent UI issues
       setAuthState({
@@ -148,13 +153,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: false,
       });
 
+      // Clean up all realtime connections
+      console.log('Cleaning up realtime connections...');
+      await connectionCleanupService.cleanupAllConnections();
+
       // Sign out from Supabase
+      console.log('Signing out from Supabase...');
       await authService.logout();
 
-      console.log('Logout completed successfully');
+      console.log('Logout completed successfully - all connections cleaned up');
     } catch (error) {
       console.error('Error during logout:', error);
-      // Even if there's an error, ensure the state is cleared
+
+      // Even if there's an error, ensure cleanup is attempted and state is cleared
+      try {
+        await connectionCleanupService.cleanupAllConnections();
+      } catch (cleanupError) {
+        console.error('Error during emergency cleanup:', cleanupError);
+      }
+
       setAuthState({
         user: null,
         isLoading: false,

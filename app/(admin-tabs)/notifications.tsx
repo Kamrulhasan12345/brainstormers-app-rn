@@ -61,18 +61,12 @@ export default function AdminNotificationsScreen() {
       }
     }
 
-    // Navigate to link if present
-    if (notification.link) {
-      try {
-        router.push(notification.link as any);
-      } catch (error) {
-        console.error('Error navigating to link:', error);
-      }
-    }
+    // Don't navigate, just mark as read and stay on the same page
+    // The visual feedback (card appearance change) will show it's been read
   };
 
   const handleManageNotifications = () => {
-    router.push('/notification-management');
+    router.push('./admin_notifications');
   };
 
   const getGroupedNotifications = (): GroupedNotifications[] => {
@@ -265,10 +259,34 @@ export default function AdminNotificationsScreen() {
           }
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
+          ListFooterComponent={renderPreviewSection}
         />
       )}
     </SafeAreaView>
   );
+
+  function renderPreviewSection() {
+    if (notifications.length === 0) return null;
+
+    // Get the latest notification for preview
+    const latestNotification = notifications[0];
+    if (!latestNotification) return null;
+
+    return (
+      <View style={styles.previewSection}>
+        <Text style={styles.previewTitle}>Latest Notification Preview</Text>
+        <View style={styles.previewCard}>
+          <NotificationItem
+            notification={latestNotification}
+            onPress={() => {}} // Empty function since it's just a preview
+          />
+        </View>
+        <Text style={styles.previewNote}>
+          This is how your latest notification appears to users
+        </Text>
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -415,5 +433,32 @@ const styles = StyleSheet.create({
     color: '#475569',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  previewSection: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  previewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  previewNote: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

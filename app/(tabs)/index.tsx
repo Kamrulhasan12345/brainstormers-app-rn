@@ -77,6 +77,13 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const router = useRouter();
+
+  // Debug logging for unread count
+  useEffect(() => {
+    console.log(
+      `📱 Student Dashboard: Unread count is ${unreadCount} for user ${user?.id}`
+    );
+  }, [unreadCount, user?.id]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [todayStats, setTodayStats] = useState<TodayStats>({

@@ -9,7 +9,6 @@ import {
   SectionList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { useNotifications } from '../../hooks/useNotifications';
 import NotificationItem from '../../components/NotificationItem';
 import { BellOff, Calendar, FileText } from 'lucide-react-native';
@@ -34,7 +33,6 @@ interface GroupedNotifications {
 export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [groupBy, setGroupBy] = useState<'type' | 'date'>('date');
-  const router = useRouter();
   const {
     notifications,
     loading,
@@ -60,14 +58,8 @@ export default function NotificationsScreen() {
       }
     }
 
-    // Navigate to link if present
-    if (notification.link) {
-      try {
-        router.push(notification.link as any);
-      } catch (error) {
-        console.error('Error navigating to link:', error);
-      }
-    }
+    // Don't navigate, just mark as read and stay on the same page
+    // The visual feedback (card appearance change) will show it's been read
   };
 
   const getGroupedNotifications = (): GroupedNotifications[] => {

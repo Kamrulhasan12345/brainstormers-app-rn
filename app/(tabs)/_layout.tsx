@@ -76,7 +76,26 @@ export default function TabLayout() {
           ),
         }}
       />
-      
+
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          tabBarIcon: ({ size, color }) => (
+            <View>
+              <Bell size={size} color={color} />
+              {unreadCount > 0 && (
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ),
+        }}
+      />
+
       {/* <Tabs.Screen
         name="qna"
         options={{
@@ -115,12 +134,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="editprofile"
-        options={{
-          href: null, // This hides the tab from the tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
         options={{
           href: null, // This hides the tab from the tab bar
         }}

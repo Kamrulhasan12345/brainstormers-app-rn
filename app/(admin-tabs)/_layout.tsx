@@ -1,6 +1,8 @@
 import { Tabs, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import {
   LayoutDashboard,
   Users,
@@ -9,10 +11,12 @@ import {
   GraduationCap,
   UserCog,
   Send,
+  Bell,
 } from 'lucide-react-native';
 
 export default function AdminTabLayout() {
   const { isAuthenticated, user } = useAuth();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
 
   useEffect(() => {
@@ -108,7 +112,19 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          href: null, // This hides the tab from the tab bar
+          title: 'Notifications',
+          tabBarIcon: ({ size, color }) => (
+            <View>
+              <Bell size={size} color={color} />
+              {unreadCount > 0 && (
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -121,3 +137,23 @@ export default function AdminTabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  badgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});

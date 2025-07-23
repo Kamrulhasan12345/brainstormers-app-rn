@@ -32,6 +32,11 @@ interface AdminStats {
 function NotificationButton({ onPress }: { onPress: () => void }) {
   const { unreadCount } = useNotifications();
 
+  // Debug logging for admin unread count
+  useEffect(() => {
+    console.log(`👑 Admin Dashboard: Unread count is ${unreadCount}`);
+  }, [unreadCount]);
+
   return (
     <TouchableOpacity style={styles.iconButton} onPress={onPress}>
       <View style={styles.notificationIconContainer}>

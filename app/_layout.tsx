@@ -12,6 +12,7 @@ import { Roboto_400Regular, Roboto_500Medium } from '@expo-google-fonts/roboto';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { GlobalNotificationProvider } from '../contexts/GlobalNotificationContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -100,8 +101,10 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootLayoutNav />
-      <StatusBar style="auto" />
+      <GlobalNotificationProvider>
+        <RootLayoutNav />
+        <StatusBar style="auto" />
+      </GlobalNotificationProvider>
     </AuthProvider>
   );
 }

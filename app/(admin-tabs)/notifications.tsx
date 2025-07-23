@@ -259,34 +259,10 @@ export default function AdminNotificationsScreen() {
           }
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
-          ListFooterComponent={renderPreviewSection}
         />
       )}
     </SafeAreaView>
   );
-
-  function renderPreviewSection() {
-    if (notifications.length === 0) return null;
-
-    // Get the latest notification for preview
-    const latestNotification = notifications[0];
-    if (!latestNotification) return null;
-
-    return (
-      <View style={styles.previewSection}>
-        <Text style={styles.previewTitle}>Latest Notification Preview</Text>
-        <View style={styles.previewCard}>
-          <NotificationItem
-            notification={latestNotification}
-            onPress={() => {}} // Empty function since it's just a preview
-          />
-        </View>
-        <Text style={styles.previewNote}>
-          This is how your latest notification appears to users
-        </Text>
-      </View>
-    );
-  }
 }
 
 const styles = StyleSheet.create({

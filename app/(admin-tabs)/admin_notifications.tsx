@@ -23,7 +23,6 @@ import {
   Calendar,
   Search,
   ChevronDown,
-  Eye,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -153,7 +152,6 @@ export default function AdminNotificationsScreen() {
   });
 
   // UI state
-  const [showPreview, setShowPreview] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -722,10 +720,10 @@ export default function AdminNotificationsScreen() {
     );
   };
 
-  const renderPreviewCard = () => {
-    if (!showPreview || !formData.body) return null;
+  const renderLivePreview = () => {
+    if (!formData.body.trim()) return null;
 
-    const mockNotification = {
+    const previewNotification = {
       id: 'preview',
       recipient_id: '',
       title: formData.title || null,
@@ -737,12 +735,65 @@ export default function AdminNotificationsScreen() {
       created_at: new Date().toISOString(),
     };
 
+    const getTargetDisplayText = () => {
+      switch (formData.targetType) {
+        case 'specific_student':
+          const student = students.find((s) => s.id === formData.targetId);
+          return student
+            ? `${student.profile.full_name || 'Unknown'} (${student.roll})`
+            : 'Select Student';
+        case 'course_students':
+          const course = courses.find((c) => c.id === formData.targetId);
+          return course ? `${course.name} students` : 'Course Students';
+        case 'lecture_absentees':
+          const lecture = lectureBatches.find(
+            (l) => l.id === formData.targetId
+          );
+          return lecture ? `${lecture.title} absentees` : 'Lecture Absentees';
+        case 'exam_absentees':
+          const exam = examBatches.find((e) => e.id === formData.targetId);
+          return exam ? `${exam.exam.name} absentees` : 'Exam Absentees';
+        case 'all_students':
+          return 'All Students';
+        default:
+          return 'Select Target';
+      }
+    };
+
     return (
       <View style={styles.previewSection}>
-        <Text style={styles.sectionTitle}>Preview</Text>
+        <View style={styles.previewHeader}>
+          <Text style={styles.sectionTitle}>Live Preview</Text>
+          <View style={styles.previewInfo}>
+            <View style={styles.previewBadge}>
+              {getTypeIcon(formData.type)}
+              <Text style={styles.previewBadgeText}>
+                {formData.type.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.previewDetails}>
+          <Text style={styles.previewDetailText}>
+            <Text style={styles.previewDetailLabel}>Target: </Text>
+            {getTargetDisplayText()}
+          </Text>
+          {formData.expires_at && (
+            <Text style={styles.previewDetailText}>
+              <Text style={styles.previewDetailLabel}>Expires: </Text>
+              {formData.expires_at.toLocaleDateString()}{' '}
+              {formData.expires_at.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+          )}
+        </View>
+
         <View style={styles.previewCard}>
           <NotificationItem
-            notification={mockNotification}
+            notification={previewNotification}
             onPress={() => {}}
           />
         </View>
@@ -833,15 +884,7 @@ export default function AdminNotificationsScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Admin Notifications</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[
-              styles.previewButton,
-              showPreview && styles.previewButtonActive,
-            ]}
-            onPress={() => setShowPreview(!showPreview)}
-          >
-            <Eye size={18} color={showPreview ? '#FFFFFF' : '#64748B'} />
-          </TouchableOpacity>
+          {/* Removed preview toggle button - now using live preview */}
         </View>
       </View>
 
@@ -952,25 +995,6 @@ export default function AdminNotificationsScreen() {
               />
             </View>
 
-            {/* Expiry Date */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Expires At (Optional)</Text>
-              <TouchableOpacity
-                style={styles.selector}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <View style={styles.selectorContent}>
-                  <Calendar size={16} color="#64748B" />
-                  <Text style={styles.selectorText}>
-                    {formData.expires_at
-                      ? formData.expires_at.toLocaleDateString()
-                      : 'Select expiry date'}
-                  </Text>
-                </View>
-                <ChevronDown size={16} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
             {/* Send Button */}
             <TouchableOpacity
               style={[styles.sendButton, sending && styles.sendButtonDisabled]}
@@ -988,8 +1012,8 @@ export default function AdminNotificationsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Preview Section */}
-          {renderPreviewCard()}
+          {/* Live Preview Section */}
+          {renderLivePreview()}
         </ScrollView>
       ) : (
         renderSentNotifications()
@@ -1726,5 +1750,44 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 16,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  previewInfo: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  previewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  previewBadgeText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontFamily: 'Inter-Medium',
+    fontWeight: '500',
+  },
+  previewDetails: {
+    marginBottom: 12,
+  },
+  previewDetailText: {
+    fontSize: 14,
+    color: '#374151',
+    fontFamily: 'Inter-Regular',
+    marginBottom: 4,
+  },
+  previewDetailLabel: {
+    fontWeight: '500',
+    color: '#1F2937',
+    fontFamily: 'Inter-Medium',
   },
 });

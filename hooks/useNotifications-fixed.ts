@@ -125,18 +125,18 @@ export function useNotifications() {
   }, [loadNotifications]);
 
   // Simple fallback refresh every 30 seconds to keep unread count updated
-  // useEffect(() => {
-  //   if (!user?.id) return;
+  useEffect(() => {
+    if (!user?.id) return;
 
-  //   const interval = setInterval(() => {
-  //     console.log('🔄 useNotifications: Periodic refresh for unread count');
-  //     loadNotifications();
-  //   }, 300000); // 5 minutes
+    const interval = setInterval(() => {
+      console.log('🔄 useNotifications: Periodic refresh for unread count');
+      loadNotifications();
+    }, 30000); // 30 seconds
 
-  //   return () => {
-  //     clearInterval(interval);
-  //   };
-  // }, [user?.id, loadNotifications]);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user?.id, loadNotifications]);
 
   const cleanup = useCallback(() => {
     console.log('useNotifications: Performing cleanup');
@@ -152,7 +152,7 @@ export function useNotifications() {
     loading,
     error,
     markAsRead,
-    loadNotifications,
+    reload: loadNotifications,
     cleanup,
   };
 }

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { connectionCleanupService } from '../services/connection-cleanup';
+import { notificationUpdateEmitter } from '../hooks/useNotifications';
 import GlobalNotificationPopup from '../components/GlobalNotificationPopup';
 
 interface Notification {
@@ -72,17 +73,24 @@ export function GlobalNotificationProvider({
             payload
           );
 
-          // Only handle INSERT events for popups and check if it's for current user
+          // Check if this change is for the current user
+          const notification = (payload.new || payload.old) as Notification;
+          if (!notification || notification.recipient_id !== user.id) {
+            console.log(
+              'GlobalNotificationContext: Notification not for current user, ignoring'
+            );
+            return;
+          }
+
+          // Emit event to refresh useNotifications data for ANY change
+          console.log(
+            '🚀 GlobalNotificationContext: Emitting notification update event'
+          );
+          notificationUpdateEmitter.emit();
+
+          // Only handle INSERT events for popups
           if (payload.eventType === 'INSERT') {
             const newNotification = payload.new as Notification;
-
-            // Check if notification is for current user
-            if (newNotification.recipient_id !== user.id) {
-              console.log(
-                'GlobalNotificationContext: Notification not for current user, ignoring'
-              );
-              return;
-            }
 
             // Show popup for any new notification
             console.log(

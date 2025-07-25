@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +14,11 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { examManagementService } from '../../services/exam-management';
 import { lecturesManagementService } from '../../services/lectures-management';
+import {
+  StatCardSkeleton,
+  ListItemSkeleton,
+  SkeletonList,
+} from '../../components/SkeletonLoader';
 import {
   User,
   Settings,
@@ -259,10 +263,41 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Header Skeleton */}
+          <View style={styles.profileSection}>
+            <View style={styles.profileCard}>
+              <SkeletonList count={1} renderItem={() => <ListItemSkeleton />} />
+            </View>
+          </View>
+
+          {/* Academic Stats Skeleton */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Academic Performance</Text>
+            <View style={styles.statsGrid}>
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+            </View>
+          </View>
+
+          {/* Quick Actions Skeleton */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <SkeletonList count={4} renderItem={() => <ListItemSkeleton />} />
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,14 +13,15 @@ import { useRouter } from 'expo-router';
 import { lecturesManagementService } from '../../services/lectures-management';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/Pagination';
+import { CardSkeleton, SkeletonList } from '../../components/SkeletonLoader';
 import {
   Calendar,
   Clock,
-  Users,
   Filter,
   ChevronRight,
   Search,
-  BookOpen,
 } from 'lucide-react-native';
 
 export default function LecturesScreen() {
@@ -453,7 +453,7 @@ export default function LecturesScreen() {
     return lectureDate >= startOfWeek && lectureDate <= endOfWeek;
   };
 
-  const getFilteredLectures = () => {
+  const getFilteredLectures = useCallback(() => {
     let filtered = lectures;
 
     // Apply search filter
@@ -503,7 +503,16 @@ export default function LecturesScreen() {
     }
 
     return filtered;
-  };
+  }, [lectures, searchQuery, timeFilter, subjectFilter, attendanceFilter]);
+
+  // Memoized filtered lectures
+  const filteredLectures = useMemo(
+    () => getFilteredLectures(),
+    [getFilteredLectures]
+  );
+
+  // Pagination for filtered lectures
+  const pagination = usePagination(filteredLectures, { itemsPerPage: 6 });
 
   const handleLecturePress = (lecture: any) => {
     router.push(`/lectures/${lecture.id}`);
@@ -724,10 +733,39 @@ export default function LecturesScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading lectures...</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Lectures</Text>
+          <TouchableOpacity style={styles.filterIcon} onPress={toggleFilters}>
+            <Filter size={20} color="#64748B" />
+          </TouchableOpacity>
         </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.searchSection}>
+            <View style={styles.searchContainer}>
+              <Search size={20} color="#64748B" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search lectures by topic, subject, or chapter..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+          </View>
+
+          <SkeletonList
+            count={6}
+            renderItem={() => <CardSkeleton />}
+            style={styles.lecturesList}
+          />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -744,8 +782,6 @@ export default function LecturesScreen() {
       </SafeAreaView>
     );
   }
-
-  const filteredLectures = getFilteredLectures();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -783,9 +819,25 @@ export default function LecturesScreen() {
               </Text>
             </View>
           ) : (
-            filteredLectures.map(renderLectureCard)
+            pagination.paginatedData.map(renderLectureCard)
           )}
         </View>
+
+        {/* Pagination */}
+        {filteredLectures.length > 0 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            hasNextPage={pagination.hasNextPage}
+            hasPreviousPage={pagination.hasPreviousPage}
+            pageNumbers={pagination.pageNumbers}
+            onNextPage={pagination.nextPage}
+            onPreviousPage={pagination.previousPage}
+            onGoToPage={pagination.goToPage}
+            totalItems={filteredLectures.length}
+            itemsPerPage={6}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

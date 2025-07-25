@@ -20,7 +20,6 @@ import {
   ArrowLeft,
   Send,
   Users,
-  Calendar,
   Search,
   ChevronDown,
   AlertTriangle,
@@ -34,7 +33,10 @@ import {
 import { supabase } from '@/lib/supabase';
 import { studentService } from '@/services/students';
 import { courseService } from '@/services/courses';
+import { usePagination } from '@/hooks/usePagination';
 import NotificationItem from '@/components/NotificationItem';
+import { Pagination } from '@/components/Pagination';
+import { SkeletonList, ListItemSkeleton } from '@/components/SkeletonLoader';
 
 interface StudentProfile {
   id: string;
@@ -136,6 +138,11 @@ export default function AdminNotificationsScreen() {
   const [sentNotifications, setSentNotifications] = useState<
     SentNotification[]
   >([]);
+
+  // Pagination for sent notifications
+  const notificationsPagination = usePagination(sentNotifications, {
+    itemsPerPage: 10,
+  });
 
   // Form state
   const [formData, setFormData] = useState<NotificationFormData>({
@@ -802,11 +809,33 @@ export default function AdminNotificationsScreen() {
   };
 
   const renderSentNotifications = () => {
-    const filteredNotifications = sentNotifications.filter(
+    const filteredNotifications = notificationsPagination.paginatedData.filter(
       (notification) =>
         notification.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         notification.body.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    if (loading) {
+      return (
+        <View style={styles.historyContainer}>
+          <View style={styles.searchContainer}>
+            <Search size={16} color="#64748B" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search sent notifications..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+          <SkeletonList
+            count={6}
+            renderItem={() => <ListItemSkeleton />}
+            style={styles.historyList}
+          />
+        </View>
+      );
+    }
 
     return (
       <View style={styles.historyContainer}>
@@ -854,6 +883,20 @@ export default function AdminNotificationsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.historyList}
         />
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={notificationsPagination.currentPage}
+          totalPages={notificationsPagination.totalPages}
+          hasNextPage={notificationsPagination.hasNextPage}
+          hasPreviousPage={notificationsPagination.hasPreviousPage}
+          pageNumbers={notificationsPagination.pageNumbers}
+          onNextPage={notificationsPagination.nextPage}
+          onPreviousPage={notificationsPagination.previousPage}
+          onGoToPage={notificationsPagination.goToPage}
+          totalItems={sentNotifications.length}
+          itemsPerPage={10}
+        />
       </View>
     );
   };
@@ -862,10 +905,72 @@ export default function AdminNotificationsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading...</Text>
+
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Admin Notifications</Text>
+          <View style={styles.headerActions} />
         </View>
+
+        {/* Tab Selector */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'compose' && styles.activeTab]}
+            onPress={() => setActiveTab('compose')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'compose' && styles.activeTabText,
+              ]}
+            >
+              Compose
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'history' && styles.activeTab]}
+            onPress={() => setActiveTab('history')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'history' && styles.activeTabText,
+              ]}
+            >
+              History
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Skeleton Content */}
+        {activeTab === 'compose' ? (
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.container}>
+              <SkeletonList
+                count={6}
+                renderItem={() => <ListItemSkeleton />}
+                style={{ padding: 20 }}
+              />
+            </View>
+          </ScrollView>
+        ) : (
+          <View style={styles.historyContainer}>
+            <SkeletonList
+              count={8}
+              renderItem={() => <ListItemSkeleton />}
+              style={styles.historyList}
+            />
+          </View>
+        )}
       </SafeAreaView>
     );
   }

@@ -81,8 +81,12 @@ serve(async (req) => {
 
     // Process results and handle errors
     const results = Array.isArray(result.data) ? result.data : [result.data];
-    const successCount = results.filter((r) => r.status === 'ok').length;
-    const errorCount = results.filter((r) => r.status === 'error').length;
+    const successCount = results.filter(
+      (r: { status: string }) => r.status === 'ok'
+    ).length;
+    const errorCount = results.filter(
+      (r: { status: string }) => r.status === 'error'
+    ).length;
 
     return new Response(
       JSON.stringify({

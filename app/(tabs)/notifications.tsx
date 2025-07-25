@@ -5,12 +5,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   SectionList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNotifications } from '../../hooks/useNotifications';
+import { usePagination } from '../../hooks/usePagination';
 import NotificationItem from '../../components/NotificationItem';
+import { Pagination } from '../../components/Pagination';
+import {
+  NotificationSkeleton,
+  SkeletonList,
+} from '../../components/SkeletonLoader';
 import { BellOff, Calendar, FileText } from 'lucide-react-native';
 
 interface Notification {
@@ -42,6 +47,9 @@ export default function NotificationsScreen() {
     markAsRead,
   } = useNotifications();
 
+  // Pagination for notifications
+  const pagination = usePagination(notifications, { itemsPerPage: 10 });
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadNotifications();
@@ -63,12 +71,15 @@ export default function NotificationsScreen() {
   };
 
   const getGroupedNotifications = (): GroupedNotifications[] => {
+    // Use paginated data instead of all notifications
+    const dataToGroup = pagination.paginatedData;
+
     if (groupBy === 'type') {
       const types = ['error', 'warning', 'info', 'success'];
       return types
         .map((type) => ({
           title: type.charAt(0).toUpperCase() + type.slice(1),
-          data: notifications.filter((n) => n.type === type),
+          data: dataToGroup.filter((n) => n.type === type),
         }))
         .filter((group) => group.data.length > 0);
     }
@@ -82,17 +93,17 @@ export default function NotificationsScreen() {
 
     const groups: GroupedNotifications[] = [];
 
-    const todayNotifications = notifications.filter((n) => {
+    const todayNotifications = dataToGroup.filter((n) => {
       const notificationDate = new Date(n.created_at);
       return notificationDate.toDateString() === today.toDateString();
     });
 
-    const yesterdayNotifications = notifications.filter((n) => {
+    const yesterdayNotifications = dataToGroup.filter((n) => {
       const notificationDate = new Date(n.created_at);
       return notificationDate.toDateString() === yesterday.toDateString();
     });
 
-    const thisWeekNotifications = notifications.filter((n) => {
+    const thisWeekNotifications = dataToGroup.filter((n) => {
       const notificationDate = new Date(n.created_at);
       return (
         notificationDate > thisWeek &&
@@ -101,7 +112,7 @@ export default function NotificationsScreen() {
       );
     });
 
-    const olderNotifications = notifications.filter((n) => {
+    const olderNotifications = dataToGroup.filter((n) => {
       const notificationDate = new Date(n.created_at);
       return notificationDate <= thisWeek;
     });
@@ -146,10 +157,52 @@ export default function NotificationsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Notifications</Text>
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={[
+                styles.groupButton,
+                groupBy === 'date' && styles.groupButtonActive,
+              ]}
+              onPress={() => setGroupBy('date')}
+            >
+              <Calendar
+                size={16}
+                color={groupBy === 'date' ? '#FFFFFF' : '#2563EB'}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupButton,
+                groupBy === 'type' && styles.groupButtonActive,
+              ]}
+              onPress={() => setGroupBy('type')}
+            >
+              <FileText
+                size={16}
+                color={groupBy === 'type' ? '#FFFFFF' : '#2563EB'}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Skeleton Loader */}
+        <SkeletonList
+          count={8}
+          renderItem={() => <NotificationSkeleton />}
+          style={styles.listContent}
+        />
       </SafeAreaView>
     );
   }
@@ -222,22 +275,38 @@ export default function NotificationsScreen() {
           </Text>
         </View>
       ) : (
-        <SectionList
-          sections={groupedNotifications}
-          keyExtractor={(item) => item.id}
-          renderItem={renderNotificationItem}
-          renderSectionHeader={renderSectionHeader}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#2563EB']}
-              progressBackgroundColor="#F8FAFC"
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-        />
+        <>
+          <SectionList
+            sections={groupedNotifications}
+            keyExtractor={(item) => item.id}
+            renderItem={renderNotificationItem}
+            renderSectionHeader={renderSectionHeader}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#2563EB']}
+                progressBackgroundColor="#F8FAFC"
+              />
+            }
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+          />
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            hasNextPage={pagination.hasNextPage}
+            hasPreviousPage={pagination.hasPreviousPage}
+            pageNumbers={pagination.pageNumbers}
+            onNextPage={pagination.nextPage}
+            onPreviousPage={pagination.previousPage}
+            onGoToPage={pagination.goToPage}
+            totalItems={notifications.length}
+            itemsPerPage={10}
+          />
+        </>
       )}
     </SafeAreaView>
   );
@@ -295,16 +364,6 @@ const styles = StyleSheet.create({
   groupButtonActive: {
     backgroundColor: '#2563EB',
     borderColor: '#2563EB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#64748B',
-    marginTop: 12,
   },
   errorContainer: {
     flex: 1,

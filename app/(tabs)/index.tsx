@@ -24,6 +24,7 @@ import { supabase } from '../../lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { PushTokenDebug } from '../../components/PushTokenDebug';
+import { CardSkeleton, SkeletonList } from '../../components/SkeletonLoader';
 
 interface LectureBatch {
   id: string;
@@ -85,7 +86,8 @@ export default function HomeScreen() {
       `📱 Student Dashboard: Unread count is ${unreadCount} for user ${user?.id}`
     );
   }, [unreadCount, user?.id]);
-  const [loading, setLoading] = useState(true);
+  const [lecturesLoading, setLecturesLoading] = useState(true);
+  const [examsLoading, setExamsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [todayStats, setTodayStats] = useState<TodayStats>({
     lecturesCount: 0,
@@ -312,9 +314,11 @@ export default function HomeScreen() {
   }, [user]);
 
   const fetchUpcomingLectures = useCallback(async () => {
+    setLecturesLoading(true);
     try {
       if (!user?.id) {
         console.error('User ID not available');
+        setLecturesLoading(false);
         return;
       }
 
@@ -417,13 +421,17 @@ export default function HomeScreen() {
       setUpcomingLectures((uniqueLectures as unknown as LectureBatch[]) || []);
     } catch (error) {
       console.error('Error fetching upcoming lectures:', error);
+    } finally {
+      setLecturesLoading(false);
     }
   }, [user]);
 
   const fetchUpcomingExams = useCallback(async () => {
+    setExamsLoading(true);
     try {
       if (!user?.id) {
         console.error('User ID not available');
+        setExamsLoading(false);
         return;
       }
 
@@ -528,12 +536,13 @@ export default function HomeScreen() {
       setUpcomingExams((uniqueExams as unknown as ExamBatch[]) || []);
     } catch (error) {
       console.error('Error fetching upcoming exams:', error);
+    } finally {
+      setExamsLoading(false);
     }
   }, [user]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      setLoading(true);
       await Promise.all([
         fetchTodayStats(),
         fetchUpcomingLectures(),
@@ -541,8 +550,6 @@ export default function HomeScreen() {
       ]);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
     }
   }, [fetchTodayStats, fetchUpcomingLectures, fetchUpcomingExams]);
 
@@ -608,16 +615,6 @@ export default function HomeScreen() {
   const handleNotificationsPress = () => {
     router.push('/notifications');
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading dashboard...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -717,7 +714,9 @@ export default function HomeScreen() {
               <ChevronRight size={20} color="#2563EB" />
             </TouchableOpacity>
           </View>
-          {upcomingLectures.length === 0 ? (
+          {lecturesLoading ? (
+            <SkeletonList count={3} renderItem={() => <CardSkeleton />} />
+          ) : upcomingLectures.length === 0 ? (
             <View style={styles.emptyState}>
               <BookOpen size={48} color="#CBD5E1" />
               <Text style={styles.emptyStateText}>No upcoming lectures</Text>
@@ -768,7 +767,9 @@ export default function HomeScreen() {
               <ChevronRight size={20} color="#2563EB" />
             </TouchableOpacity>
           </View>
-          {upcomingExams.length === 0 ? (
+          {examsLoading ? (
+            <SkeletonList count={3} renderItem={() => <CardSkeleton />} />
+          ) : upcomingExams.length === 0 ? (
             <View style={styles.emptyState}>
               <FileText size={48} color="#CBD5E1" />
               <Text style={styles.emptyStateText}>No upcoming exams</Text>
@@ -824,15 +825,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#64748B',
   },
   header: {
     flexDirection: 'row',

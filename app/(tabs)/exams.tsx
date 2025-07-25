@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { examManagementService } from '../../services/exam-management';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/Pagination';
+import { CardSkeleton, SkeletonList } from '../../components/SkeletonLoader';
 import {
   Calendar,
   Clock,
@@ -391,7 +393,7 @@ export default function ExamsScreen() {
     return examDate >= startOfWeek && examDate <= endOfWeek;
   };
 
-  const getFilteredExams = () => {
+  const getFilteredExams = useCallback(() => {
     let filtered = exams;
 
     // Apply search filter
@@ -439,7 +441,7 @@ export default function ExamsScreen() {
     }
 
     return filtered;
-  };
+  }, [exams, searchQuery, timeFilter, subjectFilter, attendanceFilter]);
 
   const handleExamPress = (exam: any) => {
     router.push(`/exams/${exam.id}`);
@@ -496,6 +498,12 @@ export default function ExamsScreen() {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     (global as any).fixExamDate = fixExamDate;
   }
+
+  // Memoized filtered exams
+  const filteredExams = useMemo(() => getFilteredExams(), [getFilteredExams]);
+
+  // Pagination for filtered exams
+  const pagination = usePagination(filteredExams, { itemsPerPage: 6 });
 
   const renderSearchBar = () => {
     return (
@@ -712,10 +720,37 @@ export default function ExamsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading exams...</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Exams</Text>
+          <TouchableOpacity style={styles.filterIcon} onPress={toggleFilters}>
+            <Filter size={20} color="#64748B" />
+          </TouchableOpacity>
         </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.searchContainer}>
+            <Search size={20} color="#64748B" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search exams..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#64748B"
+            />
+          </View>
+
+          <SkeletonList
+            count={6}
+            renderItem={() => <CardSkeleton />}
+            style={styles.examsList}
+          />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -732,8 +767,6 @@ export default function ExamsScreen() {
       </SafeAreaView>
     );
   }
-
-  const filteredExams = getFilteredExams();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -771,9 +804,25 @@ export default function ExamsScreen() {
               </Text>
             </View>
           ) : (
-            filteredExams.map(renderExamCard)
+            pagination.paginatedData.map(renderExamCard)
           )}
         </View>
+
+        {/* Pagination */}
+        {filteredExams.length > 0 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            hasNextPage={pagination.hasNextPage}
+            hasPreviousPage={pagination.hasPreviousPage}
+            pageNumbers={pagination.pageNumbers}
+            onNextPage={pagination.nextPage}
+            onPreviousPage={pagination.previousPage}
+            onGoToPage={pagination.goToPage}
+            totalItems={filteredExams.length}
+            itemsPerPage={6}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

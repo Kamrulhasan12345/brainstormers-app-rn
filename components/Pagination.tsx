@@ -1,0 +1,137 @@
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  pageNumbers: number[];
+  onNextPage: () => void;
+  onPreviousPage: () => void;
+  onGoToPage: (page: number) => void;
+  totalItems?: number;
+  itemsPerPage?: number;
+}
+
+export function Pagination({
+  currentPage,
+  totalPages,
+  hasNextPage,
+  hasPreviousPage,
+  pageNumbers,
+  onNextPage,
+  onPreviousPage,
+  onGoToPage,
+  totalItems,
+  itemsPerPage = 10,
+}: PaginationProps) {
+  if (totalPages <= 1) return null;
+
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems || 0);
+
+  return (
+    <View style={styles.container}>
+      {totalItems && (
+        <Text style={styles.itemsInfo}>
+          Showing {startItem}-{endItem} of {totalItems} items
+        </Text>
+      )}
+
+      <View style={styles.paginationContainer}>
+        <TouchableOpacity
+          style={[styles.pageButton, !hasPreviousPage && styles.disabledButton]}
+          onPress={onPreviousPage}
+          disabled={!hasPreviousPage}
+        >
+          <ChevronLeft
+            size={16}
+            color={!hasPreviousPage ? '#CBD5E1' : '#475569'}
+          />
+        </TouchableOpacity>
+
+        {pageNumbers.map((pageNumber) => (
+          <TouchableOpacity
+            key={pageNumber}
+            style={[
+              styles.pageButton,
+              currentPage === pageNumber && styles.activePageButton,
+            ]}
+            onPress={() => onGoToPage(pageNumber)}
+          >
+            <Text
+              style={[
+                styles.pageButtonText,
+                currentPage === pageNumber && styles.activePageButtonText,
+              ]}
+            >
+              {pageNumber}
+            </Text>
+          </TouchableOpacity>
+        ))}
+
+        <TouchableOpacity
+          style={[styles.pageButton, !hasNextPage && styles.disabledButton]}
+          onPress={onNextPage}
+          disabled={!hasNextPage}
+        >
+          <ChevronRight
+            size={16}
+            color={!hasNextPage ? '#CBD5E1' : '#475569'}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  itemsInfo: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pageButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activePageButton: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  disabledButton: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+  pageButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  activePageButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+});

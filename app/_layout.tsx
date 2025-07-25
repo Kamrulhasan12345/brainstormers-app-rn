@@ -13,6 +13,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { GlobalNotificationProvider } from '../contexts/GlobalNotificationContext';
+import { usePushTokenActivity } from '@/hooks/usePushTokenActivity';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -20,6 +21,9 @@ function RootLayoutNav() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Initialize push token activity tracking
+  usePushTokenActivity();
 
   useEffect(() => {
     if (isLoading) {

@@ -25,8 +25,7 @@ class PushNotificationService {
       const { data: pushTokens, error } = await supabase
         .from('push_tokens')
         .select('token, user_id')
-        .in('user_id', recipientIds)
-        .eq('active', true);
+        .in('user_id', recipientIds);
 
       if (error) throw error;
 
@@ -60,14 +59,17 @@ class PushNotificationService {
   /**
    * Register a push token for a user
    */
-  async registerPushToken(userId: string, token: string): Promise<void> {
+  async registerPushToken(
+    userId: string,
+    token: string,
+    platform: 'ios' | 'android' | 'web'
+  ): Promise<void> {
     try {
       const { error } = await supabase.from('push_tokens').upsert({
         user_id: userId,
         token,
-        active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        platform,
+        last_active: new Date().toISOString(),
       });
 
       if (error) throw error;
@@ -78,18 +80,40 @@ class PushNotificationService {
   }
 
   /**
-   * Deactivate push tokens for a user (on logout)
+   * Deactivate ALL push tokens for a user (ADMIN FUNCTION - use with caution)
+   * This will log the user out of ALL devices!
    */
-  async deactivatePushTokens(userId: string): Promise<void> {
+  async deactivateAllPushTokens(userId: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('push_tokens')
-        .update({ active: false, updated_at: new Date().toISOString() })
+        .delete()
         .eq('user_id', userId);
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error deactivating push tokens:', error);
+      console.error('Error deactivating all push tokens:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Deactivate a specific push token (safer for single device logout)
+   */
+  async deactivateSpecificPushToken(
+    userId: string,
+    token: string
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('push_tokens')
+        .delete()
+        .eq('user_id', userId)
+        .eq('token', token);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deactivating specific push token:', error);
       throw error;
     }
   }

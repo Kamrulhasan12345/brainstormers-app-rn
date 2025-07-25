@@ -23,6 +23,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { supabase } from '../../lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { PushTokenDebug } from '../../components/PushTokenDebug';
 
 interface LectureBatch {
   id: string;
@@ -808,6 +809,9 @@ export default function HomeScreen() {
             ))
           )}
         </View>
+
+        {/* Debug Component - Remove in production */}
+        {__DEV__ && <PushTokenDebug />}
       </ScrollView>
     </SafeAreaView>
   );

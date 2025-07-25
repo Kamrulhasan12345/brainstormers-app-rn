@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { BookOpen, Calendar, Users, Bell, LogOut } from 'lucide-react-native';
 import { adminStatsService } from '@/services/admin-stats';
+import { PushTokenDebug } from '@/components/PushTokenDebug';
 
 interface AdminStats {
   totalStudents: number;
@@ -239,6 +240,9 @@ export default function AdminDashboard() {
             </View>
           </View>
         </View>
+
+        {/* Debug Component - Remove in production */}
+        {__DEV__ && <PushTokenDebug />}
       </ScrollView>
     </SafeAreaView>
   );

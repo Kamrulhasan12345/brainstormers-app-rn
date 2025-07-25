@@ -3,6 +3,7 @@ import { AuthState, LoginCredentials } from '@/types/auth';
 import { authService } from '@/services/auth';
 import { supabase } from '@/lib/supabase';
 import { connectionCleanupService } from '@/services/connection-cleanup';
+import { pushTokenService } from '@/services/push-token-management';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -20,6 +21,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    // Configure push notifications
+    pushTokenService.configureNotifications();
+
+    // Initialize periodic cleanup (only once per app session)
+    pushTokenService.initializePeriodicCleanup();
+
     // Check initial session
     checkAuthState();
 
@@ -49,6 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             isAuthenticated: !!user,
           });
+
+          // Register push token for the user
+          if (user) {
+            await pushTokenService.registerPushToken(user.id);
+          }
         } catch (error) {
           console.error('Error getting user profile:', error);
           setAuthState({
@@ -78,6 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isLoading: false,
           isAuthenticated: !!user,
         });
+
+        // Register push token for returning user
+        if (user) {
+          await pushTokenService.registerPushToken(user.id);
+        }
       } else {
         console.log('No existing session found');
         setAuthState({
@@ -142,9 +159,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Logout initiated - starting graceful shutdown');
 
+      // Get current user ID before clearing state
+      const currentUserId = authState.user?.id;
+
       // First, get connection status before cleanup
       const connectionStatus = connectionCleanupService.getStatus();
       console.log('Active connections before logout:', connectionStatus);
+
+      // Deactivate only current device's push token before clearing state
+      if (currentUserId) {
+        console.log('Deactivating current device push token...');
+        await pushTokenService.deactivateCurrentDeviceToken(currentUserId);
+      }
 
       // Immediately clear the state to prevent UI issues
       setAuthState({

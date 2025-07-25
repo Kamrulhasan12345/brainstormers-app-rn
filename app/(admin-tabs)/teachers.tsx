@@ -18,6 +18,12 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Plus, Edit, Trash2, User, X } from 'lucide-react-native';
 import { teacherService } from '@/services/teachers';
 import { TeacherWithProfile } from '@/types/database-new';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/Pagination';
+import {
+  ListItemSkeleton,
+  SkeletonList,
+} from '../../components/SkeletonLoader';
 
 interface TeacherFormData {
   email: string;
@@ -41,6 +47,9 @@ export default function AdminTeachersScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Pagination for filtered teachers
+  const pagination = usePagination(filteredTeachers, { itemsPerPage: 10 });
   const [formData, setFormData] = useState<TeacherFormData>({
     email: '',
     password: '',
@@ -262,17 +271,6 @@ export default function AdminTeachersScreen() {
     </View>
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading teachers...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
@@ -305,24 +303,46 @@ export default function AdminTeachersScreen() {
       </View>
 
       {/* Teachers List */}
-      <FlatList
-        data={filteredTeachers}
-        renderItem={renderTeacherItem}
-        keyExtractor={(item) => item.id}
-        style={styles.teachersList}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No teachers found</Text>
-            <Text style={styles.emptySubtext}>
-              Add your first teacher to get started
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <SkeletonList
+          count={8}
+          renderItem={() => <ListItemSkeleton />}
+          style={styles.teachersList}
+        />
+      ) : (
+        <>
+          <FlatList
+            data={pagination.paginatedData}
+            renderItem={renderTeacherItem}
+            keyExtractor={(item) => item.id}
+            style={styles.teachersList}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No teachers found</Text>
+                <Text style={styles.emptySubtext}>
+                  Add your first teacher to get started
+                </Text>
+              </View>
+            }
+          />
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            hasNextPage={pagination.hasNextPage}
+            hasPreviousPage={pagination.hasPreviousPage}
+            pageNumbers={pagination.pageNumbers}
+            onNextPage={pagination.nextPage}
+            onPreviousPage={pagination.previousPage}
+            onGoToPage={pagination.goToPage}
+          />
+        </>
+      )}
 
       {/* Add Teacher Modal */}
       <Modal
@@ -505,16 +525,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#64748B',
   },
   header: {
     flexDirection: 'row',

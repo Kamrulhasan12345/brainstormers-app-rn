@@ -26,6 +26,12 @@ import {
 } from 'lucide-react-native';
 import { courseService } from '@/services/courses';
 import { CourseWithDetails } from '@/types/database-new';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/Pagination';
+import {
+  ListItemSkeleton,
+  SkeletonList,
+} from '../../components/SkeletonLoader';
 
 export default function CoursesManagement() {
   const router = useRouter();
@@ -74,6 +80,9 @@ export default function CoursesManagement() {
       course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Pagination for filtered courses
+  const pagination = usePagination(filteredCourses, { itemsPerPage: 10 });
 
   const resetForm = () => {
     setFormData({
@@ -243,39 +252,50 @@ export default function CoursesManagement() {
       >
         <View style={styles.coursesContainer}>
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2563EB" />
-              <Text style={styles.loadingText}>Loading courses...</Text>
-            </View>
+            <SkeletonList count={8} renderItem={() => <ListItemSkeleton />} />
           ) : filteredCourses.length === 0 ? (
             <Text style={styles.emptyText}>No courses found</Text>
           ) : (
-            filteredCourses.map((course) => (
-              <TouchableOpacity
-                key={course.id}
-                style={styles.courseCard}
-                onPress={() => setSelectedCourse(course)}
-              >
-                <View style={styles.courseHeader}>
-                  <Text style={styles.courseName}>{course.name}</Text>
-                  <Text style={styles.courseCode}>{course.code}</Text>
-                </View>
-                <View style={styles.courseStats}>
-                  <View style={styles.stat}>
-                    <Users size={14} color="#64748B" />
-                    <Text style={styles.statText}>
-                      {course.enrollment_count} Students
-                    </Text>
+            <>
+              {pagination.paginatedData.map((course) => (
+                <TouchableOpacity
+                  key={course.id}
+                  style={styles.courseCard}
+                  onPress={() => setSelectedCourse(course)}
+                >
+                  <View style={styles.courseHeader}>
+                    <Text style={styles.courseName}>{course.name}</Text>
+                    <Text style={styles.courseCode}>{course.code}</Text>
                   </View>
-                  <View style={styles.stat}>
-                    <BookOpen size={14} color="#64748B" />
-                    <Text style={styles.statText}>
-                      {course.lecture_count} Lectures
-                    </Text>
+                  <View style={styles.courseStats}>
+                    <View style={styles.stat}>
+                      <Users size={14} color="#64748B" />
+                      <Text style={styles.statText}>
+                        {course.enrollment_count} Students
+                      </Text>
+                    </View>
+                    <View style={styles.stat}>
+                      <BookOpen size={14} color="#64748B" />
+                      <Text style={styles.statText}>
+                        {course.lecture_count} Lectures
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              ))}
+
+              {/* Pagination */}
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                hasNextPage={pagination.hasNextPage}
+                hasPreviousPage={pagination.hasPreviousPage}
+                pageNumbers={pagination.pageNumbers}
+                onNextPage={pagination.nextPage}
+                onPreviousPage={pagination.previousPage}
+                onGoToPage={pagination.goToPage}
+              />
+            </>
           )}
         </View>
       </ScrollView>

@@ -39,6 +39,12 @@ import {
   LectureBatchWithDetails,
   Course,
 } from '@/types/database-new';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/Pagination';
+import {
+  ListItemSkeleton,
+  SkeletonList,
+} from '../../components/SkeletonLoader';
 
 // Form data for the batch creation modal
 interface BatchFormData {
@@ -146,7 +152,7 @@ export default function LecturesManagement() {
     if (hoursDiff >= -0.25 && hoursDiff < 4) {
       return 'ongoing';
     }
-    return 'ongoing'
+    return 'ongoing';
     // If it's been more than 4 hours and not marked complete, consider it not held
     // return 'not_held';
   };
@@ -259,6 +265,9 @@ export default function LecturesManagement() {
 
     return matchesSearch && matchesSubject;
   });
+
+  // Pagination for filtered lectures
+  const pagination = usePagination(filteredLectures, { itemsPerPage: 10 });
 
   const toggleFilters = () => {
     setShowFilters(!showFilters);
@@ -1483,90 +1492,104 @@ export default function LecturesManagement() {
       >
         <View style={styles.lecturesContainer}>
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading lectures...</Text>
-            </View>
+            <SkeletonList count={8} renderItem={() => <ListItemSkeleton />} />
           ) : filteredLectures.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No lectures found</Text>
             </View>
           ) : (
-            filteredLectures.map((lecture, index) => (
-              <TouchableOpacity
-                key={lecture.id}
-                style={[
-                  styles.lectureCard,
-                  index === 0 && styles.firstLectureCard,
-                ]}
-                onPress={() => setSelectedLecture(lecture)}
-              >
-                <View style={styles.lectureHeader}>
-                  <Text style={styles.lectureTitle}>{lecture.topic}</Text>
-                  <View style={styles.lectureActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        openEditModal(lecture);
-                      }}
-                    >
-                      <Edit size={14} color="#2563EB" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDeleteLecture(lecture.id);
-                      }}
-                    >
-                      <Trash2 size={14} color="#EF4444" />
-                    </TouchableOpacity>
+            <>
+              {pagination.paginatedData.map((lecture, index) => (
+                <TouchableOpacity
+                  key={lecture.id}
+                  style={[
+                    styles.lectureCard,
+                    index === 0 && styles.firstLectureCard,
+                  ]}
+                  onPress={() => setSelectedLecture(lecture)}
+                >
+                  <View style={styles.lectureHeader}>
+                    <Text style={styles.lectureTitle}>{lecture.topic}</Text>
+                    <View style={styles.lectureActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          openEditModal(lecture);
+                        }}
+                      >
+                        <Edit size={14} color="#2563EB" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeleteLecture(lecture.id);
+                        }}
+                      >
+                        <Trash2 size={14} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
 
-                <Text style={styles.subjectText}>{lecture.subject}</Text>
-                {lecture.chapter && (
-                  <Text style={styles.chapterText}>
-                    Chapter: {lecture.chapter}
-                  </Text>
-                )}
+                  <Text style={styles.subjectText}>{lecture.subject}</Text>
+                  {lecture.chapter && (
+                    <Text style={styles.chapterText}>
+                      Chapter: {lecture.chapter}
+                    </Text>
+                  )}
 
-                <View style={styles.lectureDetails}>
-                  <View style={styles.detailRow}>
-                    <Calendar size={16} color="#64748B" />
-                    <Text style={styles.detailText}>
-                      Created{' '}
-                      {new Date(lecture.created_at).toLocaleDateString()}
+                  <View style={styles.lectureDetails}>
+                    <View style={styles.detailRow}>
+                      <Calendar size={16} color="#64748B" />
+                      <Text style={styles.detailText}>
+                        Created{' '}
+                        {new Date(lecture.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <BookOpen size={16} color="#64748B" />
+                      <Text style={styles.detailText}>
+                        {lecture.batches?.length || 0} batch(es)
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Users size={16} color="#64748B" />
+                      <Text style={styles.detailText}>
+                        {lecture.course?.name}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.lectureFooter}>
+                    <View style={styles.footerActions}>
+                      <TouchableOpacity
+                        style={styles.batchButton}
+                        onPress={() => openBatchesModal(lecture)}
+                      >
+                        <Users size={16} color="#2563EB" />
+                        <Text style={styles.batchButtonText}>Batches</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.courseText}>
+                      {lecture.course?.code}
                     </Text>
                   </View>
-                  <View style={styles.detailRow}>
-                    <BookOpen size={16} color="#64748B" />
-                    <Text style={styles.detailText}>
-                      {lecture.batches?.length || 0} batch(es)
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Users size={16} color="#64748B" />
-                    <Text style={styles.detailText}>
-                      {lecture.course?.name}
-                    </Text>
-                  </View>
-                </View>
+                </TouchableOpacity>
+              ))}
 
-                <View style={styles.lectureFooter}>
-                  <View style={styles.footerActions}>
-                    <TouchableOpacity
-                      style={styles.batchButton}
-                      onPress={() => openBatchesModal(lecture)}
-                    >
-                      <Users size={16} color="#2563EB" />
-                      <Text style={styles.batchButtonText}>Batches</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.courseText}>{lecture.course?.code}</Text>
-                </View>
-              </TouchableOpacity>
-            ))
+              {/* Pagination */}
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                hasNextPage={pagination.hasNextPage}
+                hasPreviousPage={pagination.hasPreviousPage}
+                pageNumbers={pagination.pageNumbers}
+                onNextPage={pagination.nextPage}
+                onPreviousPage={pagination.previousPage}
+                onGoToPage={pagination.goToPage}
+              />
+            </>
           )}
         </View>
       </ScrollView>

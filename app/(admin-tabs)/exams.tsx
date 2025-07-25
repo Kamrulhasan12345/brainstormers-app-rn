@@ -47,6 +47,12 @@ import {
   ExamReview,
   Student,
 } from '@/services/exam-management';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/Pagination';
+import {
+  ListItemSkeleton,
+  SkeletonList,
+} from '../../components/SkeletonLoader';
 
 export default function ExamsManagement() {
   const router = useRouter();
@@ -249,6 +255,9 @@ export default function ExamsManagement() {
 
     return matchesSearch && matchesSubject;
   });
+
+  // Pagination for filtered exams
+  const pagination = usePagination(filteredExams, { itemsPerPage: 10 });
 
   const toggleFilters = () => {
     setShowFilters(!showFilters);
@@ -926,10 +935,7 @@ export default function ExamsManagement() {
       >
         <View style={styles.examsList}>
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2563EB" />
-              <Text style={styles.loadingText}>Loading exams...</Text>
-            </View>
+            <SkeletonList count={8} renderItem={() => <ListItemSkeleton />} />
           ) : filteredExams.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
@@ -937,90 +943,104 @@ export default function ExamsManagement() {
               </Text>
             </View>
           ) : (
-            filteredExams.map((exam) => (
-              <TouchableOpacity
-                key={exam.id}
-                style={styles.examCard}
-                onPress={() => setSelectedExam(exam)}
-              >
-                <View style={styles.examHeader}>
-                  <Text style={styles.examName}>{exam.name}</Text>
-                  <View style={styles.badgeContainer}>
-                    <View style={styles.examActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          openEditModal(exam);
-                        }}
-                      >
-                        <Edit size={14} color="#2563EB" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleDeleteExam(exam.id);
-                        }}
-                      >
-                        <Trash2 size={14} color="#EF4444" />
-                      </TouchableOpacity>
+            <>
+              {pagination.paginatedData.map((exam) => (
+                <TouchableOpacity
+                  key={exam.id}
+                  style={styles.examCard}
+                  onPress={() => setSelectedExam(exam)}
+                >
+                  <View style={styles.examHeader}>
+                    <Text style={styles.examName}>{exam.name}</Text>
+                    <View style={styles.badgeContainer}>
+                      <View style={styles.examActions}>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            openEditModal(exam);
+                          }}
+                        >
+                          <Edit size={14} color="#2563EB" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteExam(exam.id);
+                          }}
+                        >
+                          <Trash2 size={14} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <Text style={styles.examSubject}>{exam.subject}</Text>
-                {exam.chapter && (
-                  <Text style={styles.examChapter}>
-                    Chapter: {exam.chapter}
-                  </Text>
-                )}
-                {exam.topic && (
-                  <Text style={styles.examTopic}>{exam.topic}</Text>
-                )}
+                  <Text style={styles.examSubject}>{exam.subject}</Text>
+                  {exam.chapter && (
+                    <Text style={styles.examChapter}>
+                      Chapter: {exam.chapter}
+                    </Text>
+                  )}
+                  {exam.topic && (
+                    <Text style={styles.examTopic}>{exam.topic}</Text>
+                  )}
 
-                <View style={styles.examDetails}>
-                  <View style={styles.detailRow}>
-                    <Calendar size={16} color="#64748B" />
-                    <Text style={styles.detailText}>
-                      Created {new Date(exam.created_at).toLocaleDateString()}
-                    </Text>
+                  <View style={styles.examDetails}>
+                    <View style={styles.detailRow}>
+                      <Calendar size={16} color="#64748B" />
+                      <Text style={styles.detailText}>
+                        Created {new Date(exam.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Target size={16} color="#64748B" />
+                      <Text style={styles.detailText}>
+                        {exam.total_marks} marks
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <BookOpen size={16} color="#64748B" />
+                      <Text style={styles.detailText}>
+                        {exam.course?.name || 'No Course'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.detailRow}>
-                    <Target size={16} color="#64748B" />
-                    <Text style={styles.detailText}>
-                      {exam.total_marks} marks
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <BookOpen size={16} color="#64748B" />
-                    <Text style={styles.detailText}>
-                      {exam.course?.name || 'No Course'}
-                    </Text>
-                  </View>
-                </View>
 
-                <View style={styles.examFooter}>
-                  <View style={styles.examActions}>
-                    <TouchableOpacity
-                      style={styles.batchButton}
-                      onPress={() => handleViewBatches(exam)}
-                    >
-                      <Users size={16} color="#2563EB" />
-                      <Text style={styles.batchButtonText}>Batches</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.reviewButton}
-                      onPress={() => handleOpenReviews(exam)}
-                    >
-                      <MessageCircle size={16} color="#059669" />
-                      <Text style={styles.reviewButtonText}>Reviews</Text>
-                    </TouchableOpacity>
+                  <View style={styles.examFooter}>
+                    <View style={styles.examActions}>
+                      <TouchableOpacity
+                        style={styles.batchButton}
+                        onPress={() => handleViewBatches(exam)}
+                      >
+                        <Users size={16} color="#2563EB" />
+                        <Text style={styles.batchButtonText}>Batches</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.reviewButton}
+                        onPress={() => handleOpenReviews(exam)}
+                      >
+                        <MessageCircle size={16} color="#059669" />
+                        <Text style={styles.reviewButtonText}>Reviews</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <ChevronRight size={20} color="#64748B" />
                   </View>
-                  <ChevronRight size={20} color="#64748B" />
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              ))}
+
+              {/* Pagination */}
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                hasNextPage={pagination.hasNextPage}
+                hasPreviousPage={pagination.hasPreviousPage}
+                pageNumbers={pagination.pageNumbers}
+                onNextPage={pagination.nextPage}
+                onPreviousPage={pagination.previousPage}
+                onGoToPage={pagination.goToPage}
+              />
+            </>
           )}
         </View>
       </ScrollView>

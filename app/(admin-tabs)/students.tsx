@@ -21,18 +21,22 @@ import {
   Edit,
   Trash2,
   User,
-  Mail,
   Phone,
   GraduationCap,
   Search,
   BookOpen,
   Calendar,
-  UserPlus,
   X,
 } from 'lucide-react-native';
 import { studentService } from '@/services/students';
 import { courseService } from '@/services/courses';
 import { StudentWithProfile, CourseWithDetails } from '@/types/database-new';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../../components/Pagination';
+import {
+  ListItemSkeleton,
+  SkeletonList,
+} from '../../components/SkeletonLoader';
 
 interface StudentFormData {
   email: string;
@@ -57,6 +61,9 @@ export default function AdminStudentsScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Pagination for filtered students
+  const pagination = usePagination(filteredStudents, { itemsPerPage: 10 });
 
   const [formData, setFormData] = useState<StudentFormData>({
     email: '',
@@ -87,17 +94,7 @@ export default function AdminStudentsScreen() {
     loadData();
   }, [loadData]);
 
-  useEffect(() => {
-    filterStudents();
-  }, [students, searchQuery]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
-
-  const filterStudents = () => {
+  const filterStudents = useCallback(() => {
     if (!searchQuery.trim()) {
       setFilteredStudents(students);
       return;
@@ -111,7 +108,17 @@ export default function AdminStudentsScreen() {
         student.roll?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredStudents(filtered);
-  };
+  }, [students, searchQuery]);
+
+  useEffect(() => {
+    filterStudents();
+  }, [filterStudents]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const resetForm = () => {
     setFormData({
@@ -349,17 +356,6 @@ export default function AdminStudentsScreen() {
     </View>
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading students...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
@@ -405,27 +401,49 @@ export default function AdminStudentsScreen() {
       </View>
 
       {/* Students List */}
-      <FlatList
-        data={filteredStudents}
-        renderItem={renderStudentItem}
-        keyExtractor={(item) => item.id}
-        style={styles.studentsList}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <GraduationCap size={48} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No students found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery
-                ? 'Try adjusting your search'
-                : 'Add your first student to get started'}
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <SkeletonList
+          count={8}
+          renderItem={() => <ListItemSkeleton />}
+          style={styles.studentsList}
+        />
+      ) : (
+        <>
+          <FlatList
+            data={pagination.paginatedData}
+            renderItem={renderStudentItem}
+            keyExtractor={(item) => item.id}
+            style={styles.studentsList}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <GraduationCap size={48} color="#D1D5DB" />
+                <Text style={styles.emptyText}>No students found</Text>
+                <Text style={styles.emptySubtext}>
+                  {searchQuery
+                    ? 'Try adjusting your search'
+                    : 'Add your first student to get started'}
+                </Text>
+              </View>
+            }
+          />
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            hasNextPage={pagination.hasNextPage}
+            hasPreviousPage={pagination.hasPreviousPage}
+            pageNumbers={pagination.pageNumbers}
+            onNextPage={pagination.nextPage}
+            onPreviousPage={pagination.previousPage}
+            onGoToPage={pagination.goToPage}
+          />
+        </>
+      )}
 
       {/* Add Student Modal */}
       <Modal
@@ -690,16 +708,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#64748B',
   },
   header: {
     flexDirection: 'row',

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { notificationService } from '../services/NotificationService';
 
 interface Notification {
   id: string;
@@ -37,7 +38,36 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<{
+    granted: boolean;
+    canAskAgain: boolean;
+  }>({ granted: false, canAskAgain: true });
   const { user } = useAuth();
+
+  // Initialize notification service
+  useEffect(() => {
+    notificationService.initialize();
+    return () => notificationService.cleanup();
+  }, []);
+
+  // Check and update permission status
+  const checkPermissions = useCallback(async () => {
+    const status = await notificationService.getPermissionStatus();
+    setPermissionStatus({
+      granted: status.granted,
+      canAskAgain: status.canAskAgain,
+    });
+  }, []);
+
+  // Request notification permissions
+  const requestPermissions = useCallback(async () => {
+    const status = await notificationService.requestPermissions();
+    setPermissionStatus({
+      granted: status.granted,
+      canAskAgain: status.canAskAgain,
+    });
+    return status.granted;
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     if (!user?.id) {
@@ -138,6 +168,16 @@ export function useNotifications() {
   //   };
   // }, [user?.id, loadNotifications]);
 
+  // Check permissions on hook initialization
+  useEffect(() => {
+    checkPermissions();
+  }, [checkPermissions]);
+
+  // Update badge count when unread count changes
+  useEffect(() => {
+    notificationService.updateBadgeCount(unreadCount);
+  }, [unreadCount]);
+
   const cleanup = useCallback(() => {
     console.log('useNotifications: Performing cleanup');
     setNotifications([]);
@@ -151,8 +191,11 @@ export function useNotifications() {
     unreadCount,
     loading,
     error,
+    permissionStatus,
     markAsRead,
     loadNotifications,
     cleanup,
+    checkPermissions,
+    requestPermissions,
   };
 }

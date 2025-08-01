@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { notificationService } from './NotificationService';
 
 interface PushNotificationData {
   title: string;
@@ -6,58 +7,57 @@ interface PushNotificationData {
   data?: Record<string, any>;
 }
 
-interface SendPushNotificationPayload {
-  tokens: string[];
-  notification: PushNotificationData;
-}
-
 class PushNotificationService {
   /**
-   * Send push notifications to multiple devices
-   * This would integrate with a Supabase Edge Function or external service
+   * Send push notifications to multiple devices using the new notification service
    */
   async sendPushNotifications(
     recipientIds: string[],
     notification: PushNotificationData
   ): Promise<{ success: boolean; results: any[] }> {
-    try {
-      // Get push tokens for the recipients
-      const { data: pushTokens, error } = await supabase
-        .from('push_tokens')
-        .select('token, user_id')
-        .in('user_id', recipientIds);
-
-      if (error) throw error;
-
-      if (!pushTokens || pushTokens.length === 0) {
-        return { success: true, results: [] };
-      }
-
-      // Group tokens for batch sending
-      const tokens = pushTokens.map((pt) => pt.token);
-
-      // Call Supabase Edge Function for sending push notifications
-      const { data, error: funcError } = await supabase.functions.invoke(
-        'send-push',
-        {
-          body: {
-            tokens,
-            notification,
-          } as SendPushNotificationPayload,
-        }
-      );
-
-      if (funcError) throw funcError;
-
-      return { success: true, results: data?.results || [] };
-    } catch (error) {
-      console.error('Error sending push notifications:', error);
-      return { success: false, results: [] };
-    }
+    return await notificationService.sendPushNotifications(
+      recipientIds,
+      notification
+    );
   }
 
   /**
-   * Register a push token for a user
+   * Send immediate notifications to dispatch all pending notifications
+   */
+  async sendImmediateNotifications(): Promise<boolean> {
+    return await notificationService.sendImmediateNotifications();
+  }
+
+  /**
+   * Dispatch pending notifications using your Edge Function
+   */
+  async dispatchPendingNotifications(): Promise<boolean> {
+    return await notificationService.dispatchPendingNotifications();
+  }
+
+  /**
+   * Trigger routine notification processing
+   */
+  async sendRoutineNotifications(): Promise<boolean> {
+    return await notificationService.sendRoutineNotifications();
+  }
+
+  /**
+   * Schedule a local notification
+   */
+  async scheduleLocalNotification(
+    notification: PushNotificationData,
+    delayMs?: number
+  ): Promise<string> {
+    // Pass undefined for immediate, or use the notification service directly
+    return await notificationService.scheduleLocalNotification(
+      notification,
+      undefined
+    );
+  }
+
+  /**
+   * Register a push token for a user (legacy method - prefer using pushTokenService directly)
    */
   async registerPushToken(
     userId: string,

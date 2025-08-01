@@ -11,7 +11,10 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {},
+    "android": {
+      "package": "com.brainstormers.lms",
+      "googleServicesFile": "./brainstormers-google-services.json"
+    },
     "web": {
       "bundler": "metro",
       "output": "single",
@@ -21,7 +24,16 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "sounds": [],
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -13,6 +13,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { GlobalNotificationProvider } from '../contexts/GlobalNotificationContext';
+import { NotificationSetup } from '@/components/NotificationSetup';
 import { usePushTokenActivity } from '@/hooks/usePushTokenActivity';
 
 SplashScreen.preventAutoHideAsync();
@@ -106,7 +107,9 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <GlobalNotificationProvider>
-        <RootLayoutNav />
+        <NotificationSetup>
+          <RootLayoutNav />
+        </NotificationSetup>
         <StatusBar style="auto" />
       </GlobalNotificationProvider>
     </AuthProvider>

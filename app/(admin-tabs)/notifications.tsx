@@ -378,11 +378,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButton: {
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DC2626',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   groupButton: {
     padding: 8,

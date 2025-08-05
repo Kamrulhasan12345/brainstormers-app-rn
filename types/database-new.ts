@@ -162,6 +162,32 @@ export interface Database {
           created_at?: string;
         };
       };
+      exam_reviews: {
+        Row: {
+          id: string;
+          exam_id: string;
+          reviewer_id: string;
+          role: 'student' | 'teacher' | 'staff';
+          comment: string | null;
+          reviewed_at: string;
+        };
+        Insert: {
+          id?: string;
+          exam_id: string;
+          reviewer_id: string;
+          role: 'student' | 'teacher' | 'staff';
+          comment?: string | null;
+          reviewed_at?: string;
+        };
+        Update: {
+          id?: string;
+          exam_id?: string;
+          reviewer_id?: string;
+          role?: 'student' | 'teacher' | 'staff';
+          comment?: string | null;
+          reviewed_at?: string;
+        };
+      };
       exams: {
         Row: {
           id: string;
@@ -327,6 +353,7 @@ export interface Database {
           type: 'info' | 'warning' | 'success' | 'error';
           is_read: boolean;
           created_at: string;
+          is_sent: boolean;
         };
         Insert: {
           id?: string;
@@ -338,6 +365,7 @@ export interface Database {
           type?: 'info' | 'warning' | 'success' | 'error';
           is_read?: boolean;
           created_at?: string;
+          is_sent?: boolean;
         };
         Update: {
           id?: string;
@@ -349,6 +377,7 @@ export interface Database {
           type?: 'info' | 'warning' | 'success' | 'error';
           is_read?: boolean;
           created_at?: string;
+          is_sent?: boolean;
         };
       };
       profiles: {
@@ -369,6 +398,29 @@ export interface Database {
           role?: 'admin' | 'teacher' | 'student';
           full_name?: string | null;
           created_at?: string;
+        };
+      };
+      push_tokens: {
+        Row: {
+          id: string;
+          user_id: string;
+          token: string;
+          platform: 'ios' | 'android' | 'web' | null;
+          last_active: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          token: string;
+          platform?: 'ios' | 'android' | 'web' | null;
+          last_active?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          token?: string;
+          platform?: 'ios' | 'android' | 'web' | null;
+          last_active?: string;
         };
       };
       students: {
@@ -415,6 +467,7 @@ export type CourseEnrollment =
 export type ExamAttendance =
   Database['public']['Tables']['exam_attendances']['Row'];
 export type ExamBatch = Database['public']['Tables']['exam_batches']['Row'];
+export type ExamReview = Database['public']['Tables']['exam_reviews']['Row'];
 export type Exam = Database['public']['Tables']['exams']['Row'];
 export type LectureBatch =
   Database['public']['Tables']['lecture_batches']['Row'];
@@ -424,6 +477,7 @@ export type LectureReview =
 export type Lecture = Database['public']['Tables']['lectures']['Row'];
 export type Notification = Database['public']['Tables']['notifications']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type PushToken = Database['public']['Tables']['push_tokens']['Row'];
 export type Student = Database['public']['Tables']['students']['Row'];
 export type Teacher = Database['public']['Tables']['teachers']['Row'];
 
@@ -464,6 +518,7 @@ export interface ExamWithDetails extends Exam {
   course?: Course;
   question_by_profile?: Profile;
   batches?: ExamBatch[];
+  reviews?: ExamReview[];
 }
 
 export interface ExamBatchWithDetails extends ExamBatch {

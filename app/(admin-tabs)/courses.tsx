@@ -9,7 +9,6 @@ import {
   Alert,
   Modal,
   RefreshControl,
-  ActivityIndicator,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -199,7 +198,7 @@ export default function CoursesManagement() {
           <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.deleteButton}
+          style={styles.modalDeleteButton}
           onPress={() => {
             setSelectedCourse(null);
             handleDeleteCourse(course.id);
@@ -258,30 +257,45 @@ export default function CoursesManagement() {
           ) : (
             <>
               {pagination.paginatedData.map((course) => (
-                <TouchableOpacity
-                  key={course.id}
-                  style={styles.courseCard}
-                  onPress={() => setSelectedCourse(course)}
-                >
-                  <View style={styles.courseHeader}>
-                    <Text style={styles.courseName}>{course.name}</Text>
-                    <Text style={styles.courseCode}>{course.code}</Text>
-                  </View>
-                  <View style={styles.courseStats}>
-                    <View style={styles.stat}>
-                      <Users size={14} color="#64748B" />
-                      <Text style={styles.statText}>
-                        {course.enrollment_count} Students
-                      </Text>
+                <View key={course.id} style={styles.courseCard}>
+                  <TouchableOpacity
+                    style={styles.courseContent}
+                    onPress={() => setSelectedCourse(course)}
+                  >
+                    <View style={styles.courseHeader}>
+                      <Text style={styles.courseName}>{course.name}</Text>
+                      <Text style={styles.courseCode}>{course.code}</Text>
                     </View>
-                    <View style={styles.stat}>
-                      <BookOpen size={14} color="#64748B" />
-                      <Text style={styles.statText}>
-                        {course.lecture_count} Lectures
-                      </Text>
+                    <View style={styles.courseStats}>
+                      <View style={styles.stat}>
+                        <Users size={14} color="#64748B" />
+                        <Text style={styles.statText}>
+                          {course.enrollment_count} Students
+                        </Text>
+                      </View>
+                      <View style={styles.stat}>
+                        <BookOpen size={14} color="#64748B" />
+                        <Text style={styles.statText}>
+                          {course.lecture_count} Lectures
+                        </Text>
+                      </View>
                     </View>
+                  </TouchableOpacity>
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => openEditModal(course)}
+                    >
+                      <Edit size={16} color="#2563EB" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.deleteButton]}
+                      onPress={() => handleDeleteCourse(course.id)}
+                    >
+                      <Trash2 size={16} color="#EF4444" />
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
               ))}
 
               {/* Pagination */}
@@ -557,17 +571,21 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  courseContent: {
+    flex: 1,
+  },
   courseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   courseName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1E293B',
     flex: 1,
+    marginRight: 12,
   },
   courseCode: {
     fontSize: 14,
@@ -576,24 +594,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
+    borderRadius: 4,
   },
   courseStats: {
     flexDirection: 'row',
     gap: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
   },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   statText: {
     fontSize: 14,
     color: '#64748B',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    backgroundColor: '#FEF2F2',
   },
   modalContainer: {
     flex: 1,
@@ -743,7 +777,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  deleteButton: {
+  modalDeleteButton: {
     backgroundColor: '#EF4444',
     paddingVertical: 10,
     paddingHorizontal: 16,

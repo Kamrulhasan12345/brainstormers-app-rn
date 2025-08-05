@@ -32,6 +32,7 @@ import {
   AlertCircle,
   Eye,
   Filter,
+  MessageCircle,
 } from 'lucide-react-native';
 import { lecturesManagementService } from '@/services/lectures-management';
 import {
@@ -108,6 +109,11 @@ export default function LecturesManagement() {
     scheduledTime: new Date(),
     notes: '',
   });
+
+  // Review-related state
+  const [lectureReviews, setLectureReviews] = useState<any[]>([]);
+  const [reviewComment, setReviewComment] = useState('');
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // Simple refresh function that can be used by child components
   const refreshBatches = () => {
@@ -384,6 +390,66 @@ export default function LecturesManagement() {
   const openNotesModal = (batch: LectureBatchWithDetails) => {
     setSelectedBatch(batch);
     setShowNotesModal(true);
+  };
+
+  // Review handling functions
+  const handleOpenReviews = async (lecture: LectureWithDetails) => {
+    try {
+      // For lectures, reviews are batch-wise
+      // Get all reviews for all batches of this lecture
+      let allReviews: any[] = [];
+
+      if (lecture.batches && lecture.batches.length > 0) {
+        for (const batch of lecture.batches) {
+          const batchReviews =
+            await lecturesManagementService.getReviewsForBatch(batch.id);
+          allReviews.push(...batchReviews);
+        }
+      }
+
+      setLectureReviews(allReviews);
+      setSelectedLecture(lecture);
+      setShowReviewModal(true);
+    } catch (error) {
+      console.error('Error loading reviews:', error);
+      Alert.alert('Error', 'Failed to load reviews');
+    }
+  };
+
+  const handleAddReview = async () => {
+    if (!selectedLecture || !reviewComment.trim()) {
+      Alert.alert('Error', 'Please enter a review comment');
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
+
+    // For batch reviews, we need to select which batch to review
+    // For now, we'll use the first batch if available
+    const firstBatch = selectedLecture.batches?.[0];
+    if (!firstBatch) {
+      Alert.alert('Error', 'No batches available for this lecture');
+      return;
+    }
+
+    try {
+      await lecturesManagementService.addReview(firstBatch.id, {
+        reviewerId: user.id,
+        role: user.role === 'admin' ? 'staff' : user.role || 'staff',
+        comment: reviewComment.trim(),
+      });
+
+      // Refresh reviews after adding
+      await handleOpenReviews(selectedLecture);
+      setReviewComment('');
+      Alert.alert('Success', 'Review added successfully');
+    } catch (error) {
+      console.error('Error adding review:', error);
+      Alert.alert('Error', 'Failed to add review');
+    }
   };
 
   const LectureDetails = ({ lecture }: { lecture: LectureWithDetails }) => (
@@ -1570,6 +1636,13 @@ export default function LecturesManagement() {
                         <Users size={16} color="#2563EB" />
                         <Text style={styles.batchButtonText}>Batches</Text>
                       </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.reviewButton}
+                        onPress={() => handleOpenReviews(lecture)}
+                      >
+                        <MessageCircle size={16} color="#059669" />
+                        <Text style={styles.reviewButtonText}>Reviews</Text>
+                      </TouchableOpacity>
                     </View>
                     <Text style={styles.courseText}>
                       {lecture.course?.code}
@@ -1945,6 +2018,62 @@ export default function LecturesManagement() {
             <View style={{ width: 24 }} />
           </View>
           {selectedBatch && <NotesModal batch={selectedBatch} />}
+        </SafeAreaView>
+      </Modal>
+
+      {/* Reviews Modal */}
+      <Modal
+        visible={showReviewModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowReviewModal(false)}>
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Lecture Reviews</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <View style={styles.reviewInputSection}>
+            <Text style={styles.formLabel}>Add Review:</Text>
+            <TextInput
+              style={styles.reviewTextInput}
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              placeholder="Enter your review..."
+              multiline
+              numberOfLines={3}
+            />
+            <TouchableOpacity
+              style={styles.addReviewButton}
+              onPress={handleAddReview}
+            >
+              <Text style={styles.addReviewButtonText}>Add Review</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.reviewsContainer}>
+            {lectureReviews.map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewerName}>
+                    {review.reviewer?.full_name}
+                  </Text>
+                  <Text style={styles.reviewDate}>
+                    {new Date(review.reviewed_at).toLocaleString()}
+                  </Text>
+                </View>
+                <Text style={styles.reviewComment}>{review.comment}</Text>
+                <View style={styles.reviewFooter}>
+                  <Text style={styles.reviewerRole}>
+                    {review.reviewer?.role}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -2393,13 +2522,13 @@ const styles = StyleSheet.create({
   batchCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    marginBottom: 16,
     padding: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   batchHeader: {
     flexDirection: 'row',
@@ -3082,15 +3211,110 @@ const styles = StyleSheet.create({
   batchButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#EFF6FF',
     borderRadius: 6,
-    gap: 4,
+    marginRight: 8,
   },
   batchButtonText: {
     fontSize: 12,
     color: '#2563EB',
     fontWeight: '500',
+    marginLeft: 4,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  reviewButtonText: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  reviewInputSection: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  reviewTextInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    marginTop: 8,
+    marginBottom: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  addReviewButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  addReviewButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
+  },
+  reviewsContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  reviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontFamily: 'Inter-SemiBold',
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Inter-Regular',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#374151',
+    fontFamily: 'Inter-Regular',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  reviewerRole: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Inter-Regular',
+    textTransform: 'capitalize',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
 });

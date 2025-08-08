@@ -127,6 +127,7 @@ export default function AdminNotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [reloadingStudents, setReloadingStudents] = useState(false);
 
   // Data state
   const [students, setStudents] = useState<StudentProfile[]>([]);
@@ -205,8 +206,10 @@ export default function AdminNotificationsScreen() {
   const loadStudentsIfNeeded = async () => {
     if (students.length === 0) {
       try {
-        console.log('Loading students...');
+        setReloadingStudents(true);
+        console.log('Loading all students...');
         const studentsData = await studentService.getAllStudents();
+        console.log(studentsData);
         setStudents(
           studentsData.map((s) => ({
             id: s.id,
@@ -218,7 +221,34 @@ export default function AdminNotificationsScreen() {
         );
       } catch (error) {
         console.error('Error loading students:', error);
+        Alert.alert('Error', 'Failed to load students');
+      } finally {
+        setReloadingStudents(false);
       }
+    }
+  };
+
+  // Function to force reload students (for reload button)
+  const reloadStudents = async () => {
+    try {
+      setReloadingStudents(true);
+      console.log('Reloading all students...');
+      const studentsData = await studentService.getAllStudents();
+      console.log(studentsData);
+      setStudents(
+        studentsData.map((s) => ({
+          id: s.id,
+          roll: s.roll,
+          profile: {
+            full_name: s.profile?.full_name || null,
+          },
+        }))
+      );
+    } catch (error) {
+      console.error('Error reloading students:', error);
+      Alert.alert('Error', 'Failed to reload students');
+    } finally {
+      setReloadingStudents(false);
     }
   };
 
@@ -882,20 +912,23 @@ export default function AdminNotificationsScreen() {
           )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.historyList}
-        />
-
-        {/* Pagination */}
-        <Pagination
-          currentPage={notificationsPagination.currentPage}
-          totalPages={notificationsPagination.totalPages}
-          hasNextPage={notificationsPagination.hasNextPage}
-          hasPreviousPage={notificationsPagination.hasPreviousPage}
-          pageNumbers={notificationsPagination.pageNumbers}
-          onNextPage={notificationsPagination.nextPage}
-          onPreviousPage={notificationsPagination.previousPage}
-          onGoToPage={notificationsPagination.goToPage}
-          totalItems={sentNotifications.length}
-          itemsPerPage={10}
+          ListFooterComponent={
+            notificationsPagination.totalPages > 1 ? (
+              <Pagination
+                currentPage={notificationsPagination.currentPage}
+                totalPages={notificationsPagination.totalPages}
+                hasNextPage={notificationsPagination.hasNextPage}
+                hasPreviousPage={notificationsPagination.hasPreviousPage}
+                pageNumbers={notificationsPagination.pageNumbers}
+                onNextPage={notificationsPagination.nextPage}
+                onPreviousPage={notificationsPagination.previousPage}
+                onGoToPage={notificationsPagination.goToPage}
+                totalItems={sentNotifications.length}
+                itemsPerPage={10}
+                isFooter={true}
+              />
+            ) : null
+          }
         />
       </View>
     );
@@ -1190,6 +1223,62 @@ export default function AdminNotificationsScreen() {
                 </TouchableOpacity>
               ))}
 
+              {/* All Students Section */}
+              {formData.targetType === 'all_students' && (
+                <View style={styles.subOptions}>
+                  <Text style={styles.subOptionsTitle}>
+                    All Students Selected
+                  </Text>
+
+                  {students.length === 0 ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.loadDataButton,
+                        reloadingStudents && styles.sendButtonDisabled,
+                      ]}
+                      onPress={loadStudentsIfNeeded}
+                      disabled={reloadingStudents}
+                    >
+                      {reloadingStudents ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.loadDataButtonText}>
+                          Load Students (
+                          {students.length === 0
+                            ? 'Not loaded'
+                            : `${students.length} loaded`}
+                          )
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.loadedDataInfo}>
+                      <CheckCircle size={16} color="#10B981" />
+                      <Text style={styles.loadedDataText}>
+                        {students.length} students loaded and ready
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.loadDataButton,
+                          styles.reloadButton,
+                          reloadingStudents && styles.sendButtonDisabled,
+                        ]}
+                        onPress={reloadStudents}
+                        disabled={reloadingStudents}
+                      >
+                        {reloadingStudents ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.loadDataButtonText}>
+                            Reload Students
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+
               {/* Specific Target Selection */}
               {formData.targetType === 'specific_student' && (
                 <View style={styles.subOptions}>
@@ -1197,12 +1286,20 @@ export default function AdminNotificationsScreen() {
 
                   {students.length === 0 ? (
                     <TouchableOpacity
-                      style={styles.loadDataButton}
+                      style={[
+                        styles.loadDataButton,
+                        reloadingStudents && styles.sendButtonDisabled,
+                      ]}
                       onPress={loadStudentsIfNeeded}
+                      disabled={reloadingStudents}
                     >
-                      <Text style={styles.loadDataButtonText}>
-                        Load Students
-                      </Text>
+                      {reloadingStudents ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.loadDataButtonText}>
+                          Load Students
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   ) : (
                     <>
@@ -1847,6 +1944,30 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: 'Inter-Medium',
+  },
+  loadedDataInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  loadedDataText: {
+    color: '#166534',
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    marginLeft: 8,
+    flex: 1,
+  },
+  reloadButton: {
+    backgroundColor: '#059669',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginLeft: 8,
   },
   emptyOptionsText: {
     fontSize: 14,

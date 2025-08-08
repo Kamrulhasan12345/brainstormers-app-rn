@@ -85,6 +85,8 @@ class AdminStatsService {
         .from('exam_batches')
         .select('status');
 
+      console.log('Exam Batches Data: ', examBatches);
+
       if (error) throw error;
 
       const total = examBatches?.length || 0;

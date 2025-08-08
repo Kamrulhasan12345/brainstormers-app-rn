@@ -819,25 +819,28 @@ export default function LecturesScreen() {
               </Text>
             </View>
           ) : (
-            pagination.paginatedData.map(renderLectureCard)
+            <>
+              {pagination.paginatedData.map(renderLectureCard)}
+
+              {/* Pagination */}
+              {pagination.totalPages > 1 && (
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  hasNextPage={pagination.hasNextPage}
+                  hasPreviousPage={pagination.hasPreviousPage}
+                  pageNumbers={pagination.pageNumbers}
+                  onNextPage={pagination.nextPage}
+                  onPreviousPage={pagination.previousPage}
+                  onGoToPage={pagination.goToPage}
+                  totalItems={filteredLectures.length}
+                  itemsPerPage={6}
+                  isFooter={true}
+                />
+              )}
+            </>
           )}
         </View>
-
-        {/* Pagination */}
-        {filteredLectures.length > 0 && (
-          <Pagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            hasNextPage={pagination.hasNextPage}
-            hasPreviousPage={pagination.hasPreviousPage}
-            pageNumbers={pagination.pageNumbers}
-            onNextPage={pagination.nextPage}
-            onPreviousPage={pagination.previousPage}
-            onGoToPage={pagination.goToPage}
-            totalItems={filteredLectures.length}
-            itemsPerPage={6}
-          />
-        )}
       </ScrollView>
     </SafeAreaView>
   );

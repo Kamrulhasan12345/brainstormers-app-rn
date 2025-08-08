@@ -314,20 +314,23 @@ export default function AdminNotificationsScreen() {
             }
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
-          />
-
-          {/* Pagination */}
-          <Pagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            hasNextPage={pagination.hasNextPage}
-            hasPreviousPage={pagination.hasPreviousPage}
-            pageNumbers={pagination.pageNumbers}
-            onNextPage={pagination.nextPage}
-            onPreviousPage={pagination.previousPage}
-            onGoToPage={pagination.goToPage}
-            totalItems={notifications.length}
-            itemsPerPage={10}
+            ListFooterComponent={
+              pagination.totalPages > 1 ? (
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  hasNextPage={pagination.hasNextPage}
+                  hasPreviousPage={pagination.hasPreviousPage}
+                  pageNumbers={pagination.pageNumbers}
+                  onNextPage={pagination.nextPage}
+                  onPreviousPage={pagination.previousPage}
+                  onGoToPage={pagination.goToPage}
+                  totalItems={notifications.length}
+                  itemsPerPage={10}
+                  isFooter={true}
+                />
+              ) : null
+            }
           />
         </>
       )}

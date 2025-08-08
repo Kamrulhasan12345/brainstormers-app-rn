@@ -13,6 +13,7 @@ interface PaginationProps {
   onGoToPage: (page: number) => void;
   totalItems?: number;
   itemsPerPage?: number;
+  isFooter?: boolean; // New prop to indicate if it's used as a footer component
 }
 
 export function Pagination({
@@ -26,6 +27,7 @@ export function Pagination({
   onGoToPage,
   totalItems,
   itemsPerPage = 10,
+  isFooter = false,
 }: PaginationProps) {
   if (totalPages <= 1) return null;
 
@@ -33,7 +35,7 @@ export function Pagination({
   const endItem = Math.min(currentPage * itemsPerPage, totalItems || 0);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isFooter && styles.footerContainer]}>
       {totalItems && (
         <Text style={styles.itemsInfo}>
           Showing {startItem}-{endItem} of {totalItems} items
@@ -87,12 +89,29 @@ export function Pagination({
   );
 }
 
+// Helper function to create a pagination footer component
+export function createPaginationFooter(
+  paginationProps: Omit<PaginationProps, 'isFooter'>
+) {
+  const PaginationFooter = () => (
+    <Pagination {...paginationProps} isFooter={true} />
+  );
+
+  PaginationFooter.displayName = 'PaginationFooter';
+  return PaginationFooter;
+}
+
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#F8FAFC',
     marginVertical: 8,
+  },
+  footerContainer: {
+    marginVertical: 0,
+    marginTop: 16,
+    paddingBottom: 24,
   },
   itemsInfo: {
     fontSize: 14,

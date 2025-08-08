@@ -1030,16 +1030,19 @@ export default function ExamsManagement() {
               ))}
 
               {/* Pagination */}
-              <Pagination
-                currentPage={pagination.currentPage}
-                totalPages={pagination.totalPages}
-                hasNextPage={pagination.hasNextPage}
-                hasPreviousPage={pagination.hasPreviousPage}
-                pageNumbers={pagination.pageNumbers}
-                onNextPage={pagination.nextPage}
-                onPreviousPage={pagination.previousPage}
-                onGoToPage={pagination.goToPage}
-              />
+              {pagination.totalPages > 1 && (
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  hasNextPage={pagination.hasNextPage}
+                  hasPreviousPage={pagination.hasPreviousPage}
+                  pageNumbers={pagination.pageNumbers}
+                  onNextPage={pagination.nextPage}
+                  onPreviousPage={pagination.previousPage}
+                  onGoToPage={pagination.goToPage}
+                  isFooter={true}
+                />
+              )}
             </>
           )}
         </View>

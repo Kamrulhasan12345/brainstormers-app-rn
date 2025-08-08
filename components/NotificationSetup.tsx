@@ -20,11 +20,19 @@ export function NotificationSetup({
   const [permissionChecked, setPermissionChecked] = useState(false);
 
   useEffect(() => {
+    // Only initialize notification service when user is authenticated
+    if (!isAuthenticated) {
+      console.log(
+        '📱 Skipping notification initialization - user not authenticated'
+      );
+      return;
+    }
+
     // Initialize notification service when component mounts
     const initializeNotifications = async () => {
       try {
         await notificationService.initialize();
-        console.log('✅ Notification service initialized');
+        // Remove the duplicate log message here since the service logs its own status
 
         // Check if device supports notifications
         if (!notificationService.isDeviceSupported()) {

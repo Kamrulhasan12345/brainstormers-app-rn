@@ -429,18 +429,21 @@ export default function AdminStudentsScreen() {
                 </Text>
               </View>
             }
-          />
-
-          {/* Pagination */}
-          <Pagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            hasNextPage={pagination.hasNextPage}
-            hasPreviousPage={pagination.hasPreviousPage}
-            pageNumbers={pagination.pageNumbers}
-            onNextPage={pagination.nextPage}
-            onPreviousPage={pagination.previousPage}
-            onGoToPage={pagination.goToPage}
+            ListFooterComponent={
+              pagination.totalPages > 1 ? (
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  hasNextPage={pagination.hasNextPage}
+                  hasPreviousPage={pagination.hasPreviousPage}
+                  pageNumbers={pagination.pageNumbers}
+                  onNextPage={pagination.nextPage}
+                  onPreviousPage={pagination.previousPage}
+                  onGoToPage={pagination.goToPage}
+                  isFooter={true}
+                />
+              ) : null
+            }
           />
         </>
       )}

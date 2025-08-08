@@ -1652,16 +1652,19 @@ export default function LecturesManagement() {
               ))}
 
               {/* Pagination */}
-              <Pagination
-                currentPage={pagination.currentPage}
-                totalPages={pagination.totalPages}
-                hasNextPage={pagination.hasNextPage}
-                hasPreviousPage={pagination.hasPreviousPage}
-                pageNumbers={pagination.pageNumbers}
-                onNextPage={pagination.nextPage}
-                onPreviousPage={pagination.previousPage}
-                onGoToPage={pagination.goToPage}
-              />
+              {pagination.totalPages > 1 && (
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  hasNextPage={pagination.hasNextPage}
+                  hasPreviousPage={pagination.hasPreviousPage}
+                  pageNumbers={pagination.pageNumbers}
+                  onNextPage={pagination.nextPage}
+                  onPreviousPage={pagination.previousPage}
+                  onGoToPage={pagination.goToPage}
+                  isFooter={true}
+                />
+              )}
             </>
           )}
         </View>
@@ -2786,9 +2789,6 @@ const styles = StyleSheet.create({
   excusedButton: {
     backgroundColor: '#2563EB',
   },
-  reviewsContainer: {
-    padding: 16,
-  },
   reviewsTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -2818,33 +2818,14 @@ const styles = StyleSheet.create({
   addReviewButton: {
     backgroundColor: '#16A34A',
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addReviewButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginLeft: 8,
-  },
   reviewsList: {
     gap: 12,
-  },
-  reviewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 12,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  reviewerName: {
-    fontWeight: '600',
-    color: '#1E293B',
   },
   reviewRole: {
     fontSize: 12,
@@ -2858,7 +2839,10 @@ const styles = StyleSheet.create({
   },
   reviewComment: {
     fontSize: 14,
-    color: '#334155',
+    color: '#374151',
+    fontFamily: 'Inter-Regular',
+    lineHeight: 20,
+    marginBottom: 8,
   },
   notesContainer: {
     padding: 16,
@@ -3255,12 +3239,6 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  addReviewButton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
   addReviewButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -3290,18 +3268,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1E293B',
     fontFamily: 'Inter-SemiBold',
-  },
-  reviewDate: {
-    fontSize: 12,
-    color: '#64748B',
-    fontFamily: 'Inter-Regular',
-  },
-  reviewComment: {
-    fontSize: 14,
-    color: '#374151',
-    fontFamily: 'Inter-Regular',
-    lineHeight: 20,
-    marginBottom: 8,
   },
   reviewFooter: {
     flexDirection: 'row',

@@ -42,7 +42,10 @@ class NotificationService {
    * Should be called once during app startup
    */
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      console.log('⚠️ Notification service already initialized, skipping...');
+      return;
+    }
 
     try {
       // Set up notification categories

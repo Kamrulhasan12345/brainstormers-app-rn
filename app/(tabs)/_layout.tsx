@@ -26,6 +26,7 @@ export default function TabLayout() {
     }
   }, [isAuthenticated, user, router]);
 
+  // Early return after all hooks
   if (!isAuthenticated || user?.role === 'admin' || user?.role === 'teacher') {
     return null;
   }

@@ -1075,6 +1075,58 @@ export default function ExamsManagement() {
             <Text style={styles.formTitle}>Create New Exam</Text>
 
             <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Subject *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.subject}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, subject: text }))
+                }
+                placeholder="Enter subject"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Exam Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.name}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, name: text }))
+                }
+                placeholder="Enter exam name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Chapter</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.chapter}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, chapter: text }))
+                }
+                placeholder="Enter chapter"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Topic</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.topic}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, topic: text }))
+                }
+                placeholder="Enter topic"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Course *</Text>
               <View style={styles.pickerContainer}>
                 {courses.map((course) => (
@@ -1104,68 +1156,16 @@ export default function ExamsManagement() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.name}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, name: text }))
-                }
-                placeholder="Enter exam name"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Subject *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.subject}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, subject: text }))
-                }
-                placeholder="Enter subject"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Total Marks *</Text>
+              <Text style={styles.formLabel}>Total Marks</Text>
               <TextInput
                 style={styles.textInput}
                 value={formData.total_marks}
                 onChangeText={(text) =>
                   setFormData((prev) => ({ ...prev, total_marks: text }))
                 }
-                placeholder="Enter total marks"
+                placeholder="Enter total marks (default: 100)"
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Chapter</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.chapter}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, chapter: text }))
-                }
-                placeholder="Enter chapter"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Topic</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.topic}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, topic: text }))
-                }
-                placeholder="Enter topic"
-                placeholderTextColor="#94A3B8"
               />
             </View>
 
@@ -1217,6 +1217,58 @@ export default function ExamsManagement() {
             <Text style={styles.formTitle}>Edit Exam Details</Text>
 
             <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Subject *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.subject}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, subject: text }))
+                }
+                placeholder="Enter subject"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Exam Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.name}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, name: text }))
+                }
+                placeholder="Enter exam name"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Chapter</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.chapter}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, chapter: text }))
+                }
+                placeholder="Enter chapter"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Topic</Text>
+              <TextInput
+                style={styles.textInput}
+                value={formData.topic}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, topic: text }))
+                }
+                placeholder="Enter topic"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Course *</Text>
               <View style={styles.pickerContainer}>
                 {courses.map((course) => (
@@ -1246,68 +1298,16 @@ export default function ExamsManagement() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.name}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, name: text }))
-                }
-                placeholder="Enter exam name"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Subject *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.subject}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, subject: text }))
-                }
-                placeholder="Enter subject"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Total Marks *</Text>
+              <Text style={styles.formLabel}>Total Marks</Text>
               <TextInput
                 style={styles.textInput}
                 value={formData.total_marks}
                 onChangeText={(text) =>
                   setFormData((prev) => ({ ...prev, total_marks: text }))
                 }
-                placeholder="Enter total marks"
+                placeholder="Enter total marks (default: 100)"
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Chapter</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.chapter}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, chapter: text }))
-                }
-                placeholder="Enter chapter"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Topic</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.topic}
-                onChangeText={(text) =>
-                  setFormData((prev) => ({ ...prev, topic: text }))
-                }
-                placeholder="Enter topic"
-                placeholderTextColor="#94A3B8"
               />
             </View>
 
@@ -2109,10 +2109,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   formTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#1E293B',
-    fontFamily: 'Inter-Bold',
     marginBottom: 24,
   },
   formGroup: {
@@ -2124,21 +2123,23 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '500',
+    color: '#334155',
     marginBottom: 8,
   },
   textInput: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     fontSize: 16,
     color: '#1E293B',
-    fontFamily: 'Inter-Regular',
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
   },
   datePickerButton: {
     flexDirection: 'row',
@@ -2156,10 +2157,6 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     fontFamily: 'Inter-Regular',
     flex: 1,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
   },
   dateTimeButton: {
     backgroundColor: '#FFFFFF',
@@ -2194,49 +2191,43 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   pickerOptionActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
   },
   pickerOptionText: {
     fontSize: 14,
-    color: '#475569',
-    fontFamily: 'Inter-Medium',
+    color: '#334155',
   },
   pickerOptionTextActive: {
-    color: '#FFFFFF',
+    color: '#3B82F6',
+    fontWeight: '600',
   },
   formButtons: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'flex-end',
     marginTop: 24,
   },
   cancelButton: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginRight: 12,
   },
   cancelButtonText: {
-    fontSize: 16,
+    color: '#334155',
     fontWeight: '600',
-    color: '#64748B',
-    fontFamily: 'Inter-SemiBold',
   },
   saveButton: {
-    flex: 1,
     backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
   },
   saveButtonDisabled: {
     backgroundColor: '#94A3B8',
   },
   saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: 'Inter-SemiBold',
+    fontWeight: '600',
   },
   saveButtonTextDisabled: {
     color: '#CBD5E1',

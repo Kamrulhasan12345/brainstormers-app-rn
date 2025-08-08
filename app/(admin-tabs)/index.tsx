@@ -22,11 +22,14 @@ interface AdminStats {
   totalStudents: number;
   totalLectures: number;
   upcomingExams: number;
-  completedLectures: number;
-  scheduledLectures: number;
   totalExams: number;
-  completedExams: number;
-  averageAttendanceRate: number;
+  // Today's specific stats
+  todayScheduledLectures: number;
+  todayCompletedLectures: number;
+  todayLectureAttendance: number; // Today's lecture attendance
+  todayExamAttendance: number; // Today's exam attendance
+  todayScheduledExams: number;
+  todayCompletedExams: number;
 }
 
 // NotificationButton component with badge
@@ -63,11 +66,14 @@ export default function AdminDashboard() {
     totalStudents: 0,
     totalLectures: 0,
     upcomingExams: 0,
-    completedLectures: 0,
-    scheduledLectures: 0,
     totalExams: 0,
-    completedExams: 0,
-    averageAttendanceRate: 0,
+    // Today's specific stats
+    todayScheduledLectures: 0,
+    todayCompletedLectures: 0,
+    todayLectureAttendance: 0,
+    todayExamAttendance: 0,
+    todayScheduledExams: 0,
+    todayCompletedExams: 0,
   });
 
   useEffect(() => {
@@ -211,29 +217,26 @@ export default function AdminDashboard() {
               <View style={styles.progressItem}>
                 <BookOpen size={20} color="#2563EB" />
                 <Text style={styles.progressNumber}>
-                  {Math.min(
-                    adminStats.completedLectures,
-                    adminStats.scheduledLectures
-                  )}
-                  /{adminStats.scheduledLectures}
+                  {adminStats.todayCompletedLectures}/
+                  {adminStats.todayScheduledLectures}
                 </Text>
                 <Text style={styles.progressLabel}>Lectures</Text>
               </View>
               <View style={styles.progressItem}>
                 <Calendar size={20} color="#059669" />
                 <Text style={styles.progressNumber}>
-                  {Math.min(
-                    adminStats.completedExams,
-                    adminStats.upcomingExams
-                  )}
-                  /{adminStats.upcomingExams}
+                  {adminStats.todayCompletedExams}/
+                  {adminStats.todayScheduledExams}
                 </Text>
                 <Text style={styles.progressLabel}>Exams</Text>
               </View>
               <View style={styles.progressItem}>
                 <Users size={20} color="#EA580C" />
                 <Text style={styles.progressNumber}>
-                  {Math.round(adminStats.averageAttendanceRate)}%
+                  L: {Math.round(adminStats.todayLectureAttendance)}%
+                </Text>
+                <Text style={styles.progressNumber}>
+                  E: {Math.round(adminStats.todayExamAttendance)}%
                 </Text>
                 <Text style={styles.progressLabel}>Attendance</Text>
               </View>

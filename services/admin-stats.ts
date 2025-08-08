@@ -9,19 +9,34 @@ interface AdminStatistics {
   scheduledLectures: number;
   totalExams: number;
   completedExams: number;
-  averageAttendanceRate: number;
+  averageAttendanceRate: number; // Overall lecture attendance (for backward compatibility)
+  // Today's specific stats
+  todayScheduledLectures: number;
+  todayCompletedLectures: number;
+  todayLectureAttendance: number; // Today's lecture attendance
+  todayExamAttendance: number; // Today's exam attendance
+  todayScheduledExams: number;
+  todayCompletedExams: number;
 }
 
 class AdminStatsService {
   async getAdminStatistics(): Promise<AdminStatistics> {
     try {
-      const [students, lectureStats, exams, upcomingExamsCount] =
-        await Promise.all([
-          this.getTotalStudents(),
-          this.getLectureStatistics(),
-          this.getExamStatistics(),
-          this.getUpcomingExamsCount(),
-        ]);
+      const [
+        students,
+        lectureStats,
+        exams,
+        upcomingExamsCount,
+        todayLectureStats,
+        todayExamStats,
+      ] = await Promise.all([
+        this.getTotalStudents(),
+        this.getLectureStatistics(),
+        this.getExamStatistics(),
+        this.getUpcomingExamsCount(),
+        this.getTodayLectureStatistics(),
+        this.getTodayExamStatistics(),
+      ]);
 
       return {
         totalStudents: students,
@@ -31,7 +46,14 @@ class AdminStatsService {
         scheduledLectures: lectureStats.scheduled,
         totalExams: exams.total,
         completedExams: exams.completed,
-        averageAttendanceRate: lectureStats.averageAttendance,
+        averageAttendanceRate: lectureStats.averageAttendance, // Backward compatibility
+        // Today's specific stats
+        todayScheduledLectures: todayLectureStats.scheduledToday,
+        todayCompletedLectures: todayLectureStats.completedToday,
+        todayLectureAttendance: todayLectureStats.averageAttendanceToday,
+        todayExamAttendance: todayExamStats.averageAttendanceToday,
+        todayScheduledExams: todayExamStats.scheduledToday,
+        todayCompletedExams: todayExamStats.completedToday,
       };
     } catch (error) {
       console.error('Error fetching admin statistics:', error);
@@ -74,6 +96,82 @@ class AdminStatsService {
     }
   }
 
+  async getTodayLectureStatistics(): Promise<{
+    scheduledToday: number;
+    completedToday: number;
+    averageAttendanceToday: number;
+  }> {
+    try {
+      // Get today's date range
+      const today = new Date();
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      );
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
+      );
+
+      // Get today's lecture batches with their status and attendances
+      const { data: todayBatches, error } = await supabase
+        .from('lecture_batches')
+        .select(
+          `
+          status,
+          attendances(status)
+        `
+        )
+        .gte('scheduled_at', startOfDay.toISOString())
+        .lt('scheduled_at', endOfDay.toISOString());
+
+      if (error) throw error;
+
+      console.log('ksjd');
+
+      const scheduledToday =
+        todayBatches?.filter(
+          (b) => b.status === 'scheduled' || b.status === 'completed'
+        ).length || 0;
+
+      const completedToday =
+        todayBatches?.filter((b) => b.status === 'completed').length || 0;
+
+      // Calculate today's average attendance
+      let totalAttendanceToday = 0;
+      let totalStudentsToday = 0;
+
+      todayBatches?.forEach((batch) => {
+        const attendances = batch.attendances || [];
+        const present = attendances.filter(
+          (a: any) => a.status === 'present' || a.status === 'late'
+        ).length;
+        totalAttendanceToday += present;
+        totalStudentsToday += attendances.length;
+      });
+
+      const averageAttendanceToday =
+        totalStudentsToday > 0
+          ? (totalAttendanceToday / totalStudentsToday) * 100
+          : 0;
+
+      return {
+        scheduledToday,
+        completedToday,
+        averageAttendanceToday,
+      };
+    } catch (error) {
+      console.error('Error fetching today lecture statistics:', error);
+      return {
+        scheduledToday: 0,
+        completedToday: 0,
+        averageAttendanceToday: 0,
+      };
+    }
+  }
+
   private async getExamStatistics(): Promise<{
     total: number;
     completed: number;
@@ -108,6 +206,133 @@ class AdminStatsService {
         total: 0,
         completed: 0,
         scheduled: 0,
+      };
+    }
+  }
+
+  async getTodayExamStatistics(): Promise<{
+    scheduledToday: number;
+    completedToday: number;
+    averageAttendanceToday: number;
+  }> {
+    try {
+      // Get today's date range
+      const today = new Date();
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      );
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
+      );
+
+      // Get today's exam batches with their status and exam attendances
+      const { data: todayExamBatches, error } = await supabase
+        .from('exam_batches')
+        .select(
+          `
+          status,
+          scheduled_end,
+          exam_attendances(status)
+        `
+        )
+        .gte('scheduled_start', startOfDay.toISOString())
+        .lt('scheduled_start', endOfDay.toISOString());
+
+      if (error) throw error;
+
+      const scheduledToday =
+        todayExamBatches?.filter(
+          (b) => b.status === 'scheduled' || b.status === 'completed'
+        ).length || 0;
+
+      const completedToday =
+        todayExamBatches?.filter(
+          (b: any) =>
+            b.status === 'completed' || new Date(b.scheduled_end) < today
+        ).length || 0;
+
+      // Calculate today's exam attendance
+      let totalExamAttendanceToday = 0;
+      let totalExamStudentsToday = 0;
+
+      todayExamBatches?.forEach((batch) => {
+        const attendances = batch.exam_attendances || [];
+        const present = attendances.filter(
+          (a: any) => a.status === 'present' || a.status === 'late'
+        ).length;
+        totalExamAttendanceToday += present;
+        totalExamStudentsToday += attendances.length;
+      });
+
+      const averageAttendanceToday =
+        totalExamStudentsToday > 0
+          ? (totalExamAttendanceToday / totalExamStudentsToday) * 100
+          : 0;
+
+      return {
+        scheduledToday,
+        completedToday,
+        averageAttendanceToday,
+      };
+    } catch (error) {
+      console.error('Error fetching today exam statistics:', error);
+      return {
+        scheduledToday: 0,
+        completedToday: 0,
+        averageAttendanceToday: 0,
+      };
+    }
+  }
+
+  // Efficient method to get overall attendance rates for both lectures and exams
+  async getOverallAttendanceRates(): Promise<{
+    lectureAttendanceRate: number;
+    examAttendanceRate: number;
+  }> {
+    try {
+      // Get all lecture and exam attendances in parallel for efficiency
+      const [lectureAttendances, examAttendances] = await Promise.all([
+        supabase.from('attendances').select('status'),
+        supabase.from('exam_attendances').select('status'),
+      ]);
+
+      // Calculate lecture attendance rate
+      const totalLectureAttendances = lectureAttendances.data?.length || 0;
+      const presentLectureAttendances =
+        lectureAttendances.data?.filter(
+          (a) => a.status === 'present' || a.status === 'late'
+        ).length || 0;
+
+      const lectureAttendanceRate =
+        totalLectureAttendances > 0
+          ? (presentLectureAttendances / totalLectureAttendances) * 100
+          : 0;
+
+      // Calculate exam attendance rate
+      const totalExamAttendances = examAttendances.data?.length || 0;
+      const presentExamAttendances =
+        examAttendances.data?.filter(
+          (a) => a.status === 'present' || a.status === 'late'
+        ).length || 0;
+
+      const examAttendanceRate =
+        totalExamAttendances > 0
+          ? (presentExamAttendances / totalExamAttendances) * 100
+          : 0;
+
+      return {
+        lectureAttendanceRate,
+        examAttendanceRate,
+      };
+    } catch (error) {
+      console.error('Error fetching overall attendance rates:', error);
+      return {
+        lectureAttendanceRate: 0,
+        examAttendanceRate: 0,
       };
     }
   }

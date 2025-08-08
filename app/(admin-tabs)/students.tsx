@@ -291,7 +291,6 @@ export default function AdminStudentsScreen() {
           <Text style={styles.studentEmail}>
             Roll: {student.roll || 'Not assigned'}
           </Text>
-          <Text style={styles.studentId}>ID: {student.id}</Text>
         </View>
         <View style={styles.actionButtons}>
           <TouchableOpacity
@@ -328,12 +327,6 @@ export default function AdminStudentsScreen() {
           <Text style={styles.detailText}>
             Created:{' '}
             {new Date(student.profile?.created_at || '').toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <BookOpen size={14} color="#64748B" />
-          <Text style={styles.detailText}>
-            {student.enrollments?.length || 0} courses enrolled
           </Text>
         </View>
       </View>

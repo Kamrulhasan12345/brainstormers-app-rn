@@ -259,6 +259,20 @@ export function useNotifications() {
     setLoading(false);
   }, []);
 
+  const refreshNotifications = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      setLoading(true);
+      await store.loadNotifications(user.id);
+    } catch (error) {
+      console.error('Failed to refresh notifications:', error);
+      setError('Failed to refresh notifications');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, store]);
+
   return {
     notifications,
     unreadCount,
@@ -269,5 +283,7 @@ export function useNotifications() {
     cleanup,
     checkPermissions,
     requestPermissions,
+    loadNotifications: refreshNotifications, // For backward compatibility
+    refreshNotifications,
   };
 }

@@ -38,6 +38,7 @@ import {
   Target,
   ChevronRight,
   Eye,
+  RefreshCw,
 } from 'lucide-react-native';
 import {
   examManagementService,
@@ -47,6 +48,7 @@ import {
   ExamReview,
   Student,
 } from '@/services/exam-management';
+import { supabase } from '@/lib/supabase';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../../components/Pagination';
 import {
@@ -99,6 +101,7 @@ export default function ExamsManagement() {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [loadingBatchId, setLoadingBatchId] = useState<string | null>(null);
+  const [refreshingResults, setRefreshingResults] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -440,6 +443,55 @@ export default function ExamsManagement() {
     } catch (error) {
       console.error('Error fetching batches:', error);
       Alert.alert('Error', 'Failed to load exam batches');
+    }
+  };
+
+  const handleRefreshExamResults = async () => {
+    if (!selectedExam) {
+      Alert.alert('Error', 'No exam selected');
+      return;
+    }
+
+    try {
+      setRefreshingResults(true);
+
+      console.log('🔄 Starting refresh for exam:', {
+        examId: selectedExam.id,
+        examName: selectedExam.name,
+        examSubject: selectedExam.subject,
+      });
+
+      const { data, error } = await supabase.rpc('refresh_exam_results', {
+        p_exam_id: selectedExam.id,
+      });
+
+      console.log('📊 Supabase RPC response:', { data, error });
+
+      if (error) {
+        console.error('❌ Error refreshing exam results:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          fullError: error,
+        });
+        Alert.alert(
+          'Error',
+          `Failed to refresh exam results:\nCode: ${error.code}\nMessage: ${
+            error.message
+          }${error.details ? '\nDetails: ' + error.details : ''}${
+            error.hint ? '\nHint: ' + error.hint : ''
+          }`
+        );
+      } else {
+        console.log('✅ Exam results refreshed successfully');
+        Alert.alert('Success', 'Exam results have been refreshed successfully');
+      }
+    } catch (error) {
+      console.error('💥 Error calling refresh function:', error);
+      Alert.alert('Error', 'Failed to refresh exam results: ' + String(error));
+    } finally {
+      setRefreshingResults(false);
     }
   };
 
@@ -1484,6 +1536,27 @@ export default function ExamsManagement() {
               ))
             )}
           </ScrollView>
+
+          {/* Modal Footer with Refresh Button */}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[
+                styles.refreshButton,
+                refreshingResults && styles.refreshButtonDisabled,
+              ]}
+              onPress={handleRefreshExamResults}
+              disabled={refreshingResults}
+            >
+              <RefreshCw
+                size={20}
+                color="#FFFFFF"
+                style={refreshingResults && styles.refreshIcon}
+              />
+              <Text style={styles.refreshButtonText}>
+                {refreshingResults ? 'Refreshing...' : 'Refresh Results'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
       </Modal>
 
@@ -2797,5 +2870,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#475569',
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  refreshButtonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  refreshButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  refreshIcon: {
+    transform: [{ rotate: '360deg' }],
   },
 });

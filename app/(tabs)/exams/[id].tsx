@@ -23,7 +23,10 @@ import {
   XCircle,
   AlertCircle,
   Send,
+  Trophy,
+  Award,
 } from 'lucide-react-native';
+import { supabase } from '../../../lib/supabase';
 
 export default function ExamDetails() {
   const router = useRouter();
@@ -36,6 +39,8 @@ export default function ExamDetails() {
   const [reviewText, setReviewText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const [userReviews, setUserReviews] = useState<any[]>([]);
+  const [meritList, setMeritList] = useState<any[]>([]);
+  const [loadingMeritList, setLoadingMeritList] = useState(false);
 
   useEffect(() => {
     loadExamDetails();
@@ -93,6 +98,9 @@ export default function ExamDetails() {
       console.log('Final exam data:', finalExam);
       setExam(finalExam);
       setUserReviews(reviews);
+
+      // Load merit list
+      await loadMeritList();
     } catch (err) {
       console.error('Error loading exam details:', err);
       setError(
@@ -117,6 +125,85 @@ export default function ExamDetails() {
     } catch (err) {
       console.error('Error loading user reviews:', err);
       return [];
+    }
+  };
+
+  const loadMeritList = async () => {
+    try {
+      setLoadingMeritList(true);
+      console.log('Loading merit list for exam:', id);
+
+      // Fetch exam results from the exam_results table
+      const { data: examResults, error } = await supabase
+        .from('exam_results')
+        .select(
+          `
+          *,
+          student:student_id(
+            id,
+            full_name,
+            students!inner(
+              roll
+            )
+          )
+        `
+        )
+        .eq('exam_id', id as string);
+
+      if (error) {
+        console.error('Error fetching exam results:', error);
+        return;
+      }
+
+      console.log('Raw exam results:', examResults);
+
+      if (!examResults || examResults.length === 0) {
+        setMeritList([]);
+        return;
+      }
+
+      // Process and sort the results
+      const processedResults = examResults
+        .map((result: any) => ({
+          id: result.id,
+          studentId: result.student_id,
+          studentName: result.student?.full_name || 'Unknown Student',
+          roll: result.student?.students?.[0]?.roll || 'N/A',
+          score: result.score,
+          attendanceStatus: result.attendance_status,
+          isAbsent: result.attendance_status === 'absent',
+        }))
+        .sort((a: any, b: any) => {
+          // First sort by score (descending)
+          if (a.score !== b.score) {
+            return b.score - a.score;
+          }
+          // If scores are equal, sort lexicographically by name
+          return a.studentName.localeCompare(b.studentName);
+        });
+
+      // Add position rankings
+      let currentPosition = 1;
+      const meritListWithPositions = processedResults.map(
+        (result: any, index: number) => {
+          // If this is not the first result and the score is different from previous, update position
+          if (index > 0 && result.score !== processedResults[index - 1].score) {
+            currentPosition = index + 1;
+          }
+
+          return {
+            ...result,
+            position: currentPosition,
+          };
+        }
+      );
+
+      console.log('Processed merit list:', meritListWithPositions);
+      setMeritList(meritListWithPositions);
+    } catch (err) {
+      console.error('Error loading merit list:', err);
+    } finally {
+      setLoadingMeritList(false);
     }
   };
 
@@ -356,6 +443,103 @@ export default function ExamDetails() {
               </Text>
             </View>
           </View>
+        </View>
+
+        {/* Merit List Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Trophy size={20} color="#F59E0B" />
+            <Text style={styles.sectionTitle}>Merit List</Text>
+          </View>
+
+          {loadingMeritList ? (
+            <View style={styles.meritLoadingContainer}>
+              <ActivityIndicator size="small" color="#2563EB" />
+              <Text style={styles.meritLoadingText}>Loading merit list...</Text>
+            </View>
+          ) : meritList.length > 0 ? (
+            <View style={styles.meritListContainer}>
+              <View style={styles.meritListHeader}>
+                <Text style={styles.meritHeaderText}>Position</Text>
+                <Text style={styles.meritHeaderText}>Name</Text>
+                <Text style={styles.meritHeaderText}>Score</Text>
+              </View>
+
+              {meritList.map((student: any, index: number) => (
+                <View
+                  key={student.id}
+                  style={[
+                    styles.meritListItem,
+                    student.studentId === user?.id && styles.currentUserItem,
+                  ]}
+                >
+                  <View style={styles.positionContainer}>
+                    {student.position <= 3 && (
+                      <Award
+                        size={16}
+                        color={
+                          student.position === 1
+                            ? '#FFD700'
+                            : student.position === 2
+                            ? '#C0C0C0'
+                            : '#CD7F32'
+                        }
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.positionText,
+                        student.position <= 3 && styles.topPositionText,
+                      ]}
+                    >
+                      {student.position === 1
+                        ? '1st'
+                        : student.position === 2
+                        ? '2nd'
+                        : student.position === 3
+                        ? '3rd'
+                        : `${student.position}th`}
+                    </Text>
+                  </View>
+
+                  <View style={styles.studentNameContainer}>
+                    <Text
+                      style={[
+                        styles.studentNameText,
+                        student.studentId === user?.id &&
+                          styles.currentUserName,
+                      ]}
+                    >
+                      {student.studentName}
+                    </Text>
+                    <Text style={styles.rollText}>({student.roll})</Text>
+                  </View>
+
+                  <View style={styles.scoreContainer}>
+                    {student.isAbsent ? (
+                      <Text style={styles.absentText}>A</Text>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.meritScoreText,
+                          student.studentId === user?.id &&
+                            styles.currentUserScore,
+                        ]}
+                      >
+                        {student.score}/{exam.total_marks}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noMeritDataContainer}>
+              <Text style={styles.noMeritDataText}>
+                Exam Result wasn&apos;t published
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -1001,5 +1185,140 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Inter-Regular',
     fontStyle: 'italic',
+  },
+  // Merit List Styles
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  meritLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    gap: 8,
+  },
+  meritLoadingText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Inter-Regular',
+  },
+  meritListContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  meritListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  meritHeaderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+    fontFamily: 'Inter-SemiBold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  meritListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  currentUserItem: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    borderBottomWidth: 0,
+    marginVertical: 2,
+  },
+  positionContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  positionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+    fontFamily: 'Inter-SemiBold',
+  },
+  topPositionText: {
+    color: '#F59E0B',
+    fontWeight: '700',
+  },
+  studentNameContainer: {
+    flex: 2,
+    paddingLeft: 8,
+  },
+  studentNameText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
+    fontFamily: 'Inter-Medium',
+  },
+  currentUserName: {
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  rollText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Inter-Regular',
+    marginTop: 2,
+  },
+  scoreContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  meritScoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+    fontFamily: 'Inter-SemiBold',
+  },
+  currentUserScore: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  absentText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#EF4444',
+    fontFamily: 'Inter-Bold',
+  },
+  noMeritDataContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  noMeritDataText: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    fontFamily: 'Inter-Regular',
+    lineHeight: 20,
   },
 });

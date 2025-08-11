@@ -33,6 +33,7 @@ import {
   Eye,
   Filter,
   MessageCircle,
+  RotateCcw,
 } from 'lucide-react-native';
 import { lecturesManagementService } from '@/services/lectures-management';
 import {
@@ -564,9 +565,15 @@ export default function LecturesManagement() {
 
     const handleStatusUpdate = async (batchId: string, status: string) => {
       try {
+        // If marking as complete, set the current time as end_time
+        const endTime =
+          status === 'completed' ? new Date().toISOString() : undefined;
+
         await lecturesManagementService.updateBatchStatus(
           batchId,
-          status as any
+          status as any,
+          undefined, // notes
+          endTime
         );
         await loadBatches();
         Alert.alert('Success', 'Batch status updated successfully');
@@ -576,6 +583,42 @@ export default function LecturesManagement() {
       }
     };
 
+    const handleRevertBatch = (batch: LectureBatchWithDetails) => {
+      Alert.alert(
+        'Revert Batch Status',
+        'Are you sure you want to revert this batch from completed status? The status will be set back to scheduled and the completion time will be cleared.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Revert',
+            style: 'default',
+            onPress: async () => {
+              try {
+                // For simplicity, always revert to 'scheduled' status
+                // The calculateBatchStatus function will handle showing the appropriate
+                // display status ('ongoing', 'upcoming', etc.) based on the current time
+                const newStatus = 'scheduled';
+
+                await lecturesManagementService.updateBatchStatus(
+                  batch.id,
+                  newStatus as any,
+                  undefined, // notes
+                  null // Clear the end_time by setting it to null
+                );
+                await loadBatches();
+                Alert.alert(
+                  'Success',
+                  `Batch status reverted to ${newStatus}. The display status will be calculated based on the current time.`
+                );
+              } catch (error) {
+                console.error('Error reverting batch status:', error);
+                Alert.alert('Error', 'Failed to revert batch status');
+              }
+            },
+          },
+        ]
+      );
+    };
     const createNewBatch = async () => {
       setBatchFormData({
         scheduledDate: new Date(),
@@ -801,6 +844,15 @@ export default function LecturesManagement() {
                           </Text>
                         </TouchableOpacity>
                       )}
+                    {actualStatus === 'completed' && (
+                      <TouchableOpacity
+                        style={styles.revertButton}
+                        onPress={() => handleRevertBatch(batch)}
+                      >
+                        <RotateCcw size={14} color="#FFFFFF" />
+                        <Text style={styles.revertButtonText}>Revert</Text>
+                      </TouchableOpacity>
+                    )}
                     {!canComplete && actualStatus === 'upcoming' && (
                       <TouchableOpacity
                         style={[styles.completeButton, styles.disabledButton]}
@@ -2637,6 +2689,21 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   completeButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  revertButton: {
+    backgroundColor: '#EA580C',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 100,
+  },
+  revertButtonText: {
     color: '#FFFFFF',
     fontWeight: '500',
     marginLeft: 6,

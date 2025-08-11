@@ -429,7 +429,7 @@ class LecturesManagementService {
     batchId: string,
     status: 'scheduled' | 'completed' | 'postponed' | 'cancelled' | 'not_held',
     notes?: string,
-    endTime?: string
+    endTime?: string | null
   ): Promise<LectureBatch> {
     const { data, error } = await supabase
       .from('lecture_batches')

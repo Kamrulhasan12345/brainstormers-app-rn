@@ -27,6 +27,7 @@ import {
   Award,
 } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
+import { ExamDetailsSkeleton } from '../../../components/SkeletonLoader';
 
 export default function ExamDetails() {
   const router = useRouter();
@@ -378,14 +379,19 @@ export default function ExamDetails() {
 
     return '';
   };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading exam details...</Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color="#2563EB" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Exam Details</Text>
         </View>
+        <ExamDetailsSkeleton />
       </SafeAreaView>
     );
   }

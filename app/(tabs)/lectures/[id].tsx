@@ -27,6 +27,11 @@ import {
 } from 'lucide-react-native';
 import { lecturesManagementService } from '@/services/lectures-management';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  LectureOverviewSkeleton,
+  LectureNotesSkeleton,
+  LectureReviewsSkeleton,
+} from '@/components/SkeletonLoader';
 
 export default function LectureDetailsScreen() {
   const router = useRouter();
@@ -364,10 +369,35 @@ export default function LectureDetailsScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Loading...</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading lecture details...</Text>
+
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.tab, activeTab === tab.id && styles.activeTab]}
+              onPress={() => setActiveTab(tab.id as any)}
+            >
+              <tab.icon
+                size={20}
+                color={activeTab === tab.id ? '#2563EB' : '#64748B'}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === tab.id && styles.activeTabText,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
+
+        {/* Conditional Skeleton based on active tab */}
+        {activeTab === 'overview' && <LectureOverviewSkeleton />}
+        {activeTab === 'notes' && <LectureNotesSkeleton />}
+        {activeTab === 'reviews' && <LectureReviewsSkeleton />}
       </SafeAreaView>
     );
   }

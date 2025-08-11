@@ -162,6 +162,35 @@ export interface Database {
           created_at?: string;
         };
       };
+      exam_results: {
+        Row: {
+          id: string;
+          exam_id: string;
+          exam_batch_id: string | null;
+          student_id: string;
+          score: number;
+          feedback: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          exam_id: string;
+          exam_batch_id?: string | null;
+          student_id: string;
+          score: number;
+          feedback?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          exam_id?: string;
+          exam_batch_id?: string | null;
+          student_id?: string;
+          score?: number;
+          feedback?: string | null;
+          created_at?: string;
+        };
+      };
       exam_reviews: {
         Row: {
           id: string;
@@ -467,6 +496,7 @@ export type CourseEnrollment =
 export type ExamAttendance =
   Database['public']['Tables']['exam_attendances']['Row'];
 export type ExamBatch = Database['public']['Tables']['exam_batches']['Row'];
+export type ExamResult = Database['public']['Tables']['exam_results']['Row'];
 export type ExamReview = Database['public']['Tables']['exam_reviews']['Row'];
 export type Exam = Database['public']['Tables']['exams']['Row'];
 export type LectureBatch =
@@ -519,11 +549,13 @@ export interface ExamWithDetails extends Exam {
   question_by_profile?: Profile;
   batches?: ExamBatch[];
   reviews?: ExamReview[];
+  results?: ExamResult[];
 }
 
 export interface ExamBatchWithDetails extends ExamBatch {
   exam?: Exam;
   attendances?: ExamAttendance[];
+  results?: ExamResult[];
   attendance_count?: number;
   average_score?: number;
 }

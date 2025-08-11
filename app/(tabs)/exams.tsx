@@ -36,6 +36,7 @@ export default function ExamsScreen() {
   >('all');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [attendanceFilter, setAttendanceFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [subjects, setSubjects] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const router = useRouter();
@@ -440,8 +441,20 @@ export default function ExamsScreen() {
       });
     }
 
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((exam) => exam.status === statusFilter);
+    }
+
     return filtered;
-  }, [exams, searchQuery, timeFilter, subjectFilter, attendanceFilter]);
+  }, [
+    exams,
+    searchQuery,
+    timeFilter,
+    subjectFilter,
+    attendanceFilter,
+    statusFilter,
+  ]);
 
   const handleExamPress = (exam: any) => {
     router.push(`/exams/${exam.id}`);
@@ -646,6 +659,49 @@ export default function ExamsScreen() {
     );
   };
 
+  const renderStatusFilter = () => {
+    const statusOptions = [
+      { value: 'all', label: 'All' },
+      { value: 'upcoming', label: 'Upcoming' },
+      { value: 'ongoing', label: 'Ongoing' },
+      { value: 'completed', label: 'Completed' },
+      { value: 'cancelled', label: 'Cancelled' },
+      { value: 'postponed', label: 'Postponed' },
+    ];
+
+    return (
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Status Filter:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {statusOptions.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.filterButton,
+                statusFilter === option.value && styles.filterButtonActive,
+              ]}
+              onPress={() => setStatusFilter(option.value)}
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  statusFilter === option.value &&
+                    styles.filterButtonTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderExamCard = (exam: any) => {
     return (
       <TouchableOpacity
@@ -793,6 +849,7 @@ export default function ExamsScreen() {
             {renderTimeFilter()}
             {renderSubjectFilter()}
             {renderAttendanceFilter()}
+            {renderStatusFilter()}
           </>
         )}
 

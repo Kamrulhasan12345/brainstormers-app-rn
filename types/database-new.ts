@@ -171,6 +171,7 @@ export interface Database {
           score: number;
           feedback: string | null;
           created_at: string;
+          attendance_status: 'present' | 'absent';
         };
         Insert: {
           id?: string;
@@ -180,6 +181,7 @@ export interface Database {
           score: number;
           feedback?: string | null;
           created_at?: string;
+          attendance_status?: 'present' | 'absent';
         };
         Update: {
           id?: string;
@@ -189,6 +191,7 @@ export interface Database {
           score?: number;
           feedback?: string | null;
           created_at?: string;
+          attendance_status?: 'present' | 'absent';
         };
       };
       exam_reviews: {
